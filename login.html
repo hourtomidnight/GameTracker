@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Hour to Midnight Login</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    body { margin: 0; padding: 0; }
+  </style>
+</head>
+<body>
+  <div class="min-h-screen bg-gradient-to-br from-gray-950 via-gray-900 to-gray-950 flex items-center justify-center p-8">
+    <div class="bg-slate-800/50 backdrop-blur-lg rounded-2xl p-12 border border-orange-500/20 shadow-2xl max-w-md w-full">
+      <div class="flex justify-center mb-8">
+        <img src="https://www.hourtomidnight.com/wp-content/uploads/2025/02/57bdd921036be9b815b12c40_Logo-Horiz-White-Text.webp" alt="Hour to Midnight" class="h-20" onerror="this.style.display='none'" />
+      </div>
+      <h1 class="text-4xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-orange-400 to-amber-400 mb-8 text-center">
+        Login
+      </h1>
+      <form id="loginForm" class="space-y-6">
+        <input
+          type="password"
+          id="password"
+          placeholder="Enter password"
+          class="w-full bg-slate-700/50 text-white p-4 rounded-xl border border-orange-500/30 focus:border-orange-400 focus:outline-none text-lg"
+          autofocus
+        />
+        <button
+          type="submit"
+          class="w-full bg-gradient-to-r from-orange-600 to-amber-600 text-white p-4 rounded-xl font-bold text-lg hover:from-orange-500 hover:to-amber-500 transition-all shadow-lg"
+        >
+          Login
+        </button>
+        <div id="error" class="text-red-400 text-center hidden"></div>
+      </form>
+    </div>
+  </div>
+
+  <script>
+    const form = document.getElementById('loginForm');
+    const passwordInput = document.getElementById('password');
+    const errorDiv = document.getElementById('error');
+
+    // Check if there's a redirect URL in the query params
+    const urlParams = new URLSearchParams(window.location.search);
+    const redirectTo = urlParams.get('redirect') || '/';
+
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      errorDiv.classList.add('hidden');
+
+      try {
+        const response = await fetch('/api/auth/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ password: passwordInput.value })
+        });
+
+        const data = await response.json();
+
+        if (data.success) {
+          // Redirect to the intended page or home
+          window.location.href = redirectTo;
+        } else {
+          errorDiv.textContent = 'Invalid password';
+          errorDiv.classList.remove('hidden');
+          passwordInput.value = '';
+          passwordInput.focus();
+        }
+      } catch (error) {
+        errorDiv.textContent = 'Login failed. Please try again.';
+        errorDiv.classList.remove('hidden');
+      }
+    });
+  </script>
+</body>
+</html>

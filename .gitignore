@@ -1,0 +1,22 @@
+# Secrets - never commit
+google-credentials.json
+data/password.txt
+
+# Runtime data (persisted on the Pi, not source-controlled)
+data/*.json
+csv_files/*.csv
+
+# Node
+node_modules/
+npm-debug.log*
+
+# PM2
+.pm2/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Editor
+.vscode/
+*.swp
