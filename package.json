@@ -5,7 +5,8 @@
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
-    "dev": "node server.js"
+    "dev": "node server.js",
+    "deploy": "node -c server.js && scp server.js index.html home.html login.html csv-downloads.html mytho@192.168.0.124:/home/mytho/escape-room-tracker/ && ssh mytho@192.168.0.124 \"pm2 restart htm-server && pm2 logs htm-server --lines 20\""
   },
   "dependencies": {
     "express": "^4.19.2",
