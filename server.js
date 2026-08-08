@@ -3,7 +3,7 @@ const session = require('express-session');
 const fs = require('fs');
 const path = require('path');
 const multer = require('multer');
-const { getColumnValues } = require('./lib/sheets');
+const { getColumnValues, syncRoomSheetHeaders } = require('./lib/sheets');
 const { listRooms, getRoom, saveRoom } = require('./lib/rooms');
 const { uploadImageToDrive } = require('./lib/drive');
 
@@ -70,13 +70,18 @@ app.get('/api/rooms/:slug', isAuthenticated, (req, res) => {
   }
 });
 
-app.post('/api/rooms/:slug', isAuthenticated, (req, res) => {
+app.post('/api/rooms/:slug', isAuthenticated, async (req, res) => {
   try {
     const { name, sheetTab, steps } = req.body;
     if (!name || !sheetTab || !Array.isArray(steps)) {
       return res.status(400).json({ error: 'name, sheetTab, and steps[] are required' });
     }
     const saved = saveRoom(req.params.slug, { name, sheetTab, steps });
+    try {
+      await syncRoomSheetHeaders(sheetTab, steps);
+    } catch (error) {
+      console.error('Error syncing sheet headers:', error.message);
+    }
     res.json({ room: saved });
   } catch (error) {
     if (error.message.includes('Invalid slug')) {
