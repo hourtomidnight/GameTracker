@@ -3,6 +3,7 @@ const session = require('express-session');
 const fs = require('fs');
 const path = require('path');
 const { getColumnValues } = require('./lib/sheets');
+const { listRooms, getRoom, saveRoom } = require('./lib/rooms');
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -41,6 +42,25 @@ app.get('/api/operators', isAuthenticated, async (req, res) => {
     console.error('Error fetching operators:', error.message);
     res.status(500).json({ error: 'Failed to fetch operators' });
   }
+});
+
+app.get('/api/rooms', isAuthenticated, (req, res) => {
+  res.json({ rooms: listRooms() });
+});
+
+app.get('/api/rooms/:slug', isAuthenticated, (req, res) => {
+  const room = getRoom(req.params.slug);
+  if (!room) return res.status(404).json({ error: 'Room not found' });
+  res.json({ room });
+});
+
+app.post('/api/rooms/:slug', isAuthenticated, (req, res) => {
+  const { name, sheetTab, steps } = req.body;
+  if (!name || !sheetTab || !Array.isArray(steps)) {
+    return res.status(400).json({ error: 'name, sheetTab, and steps[] are required' });
+  }
+  const saved = saveRoom(req.params.slug, { name, sheetTab, steps });
+  res.json({ room: saved });
 });
 
 app.listen(PORT, () => console.log(`RoomReset server running on port ${PORT}`));
