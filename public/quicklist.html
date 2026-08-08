@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no" />
+  <title>RoomReset — Quick List</title>
+  <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <style>
+    body { font-family: sans-serif; margin: 0; background: #111; color: #eee; }
+    .screen { padding: 24px; max-width: 480px; margin: 0 auto; }
+    label { display: flex; align-items: center; gap: 12px; padding: 14px 0; font-size: 18px; border-bottom: 1px solid #333; }
+    input[type="checkbox"] { width: 24px; height: 24px; }
+    button { padding: 14px; font-size: 18px; border: none; border-radius: 6px; margin-top: 16px; width: 100%; background: #2a4; color: white; }
+    button:disabled { background: #555; }
+    .back-btn { background: #444; color: white; }
+    .error { background: #833; color: #fcc; padding: 12px; border-radius: 6px; margin: 8px 0; }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+  <script type="text/babel">
+    const { useState, useEffect } = React;
+    const params = new URLSearchParams(window.location.search);
+    const roomSlug = params.get('room');
+    const rowIndex = params.get('row');
+
+    function QuickList() {
+      const [room, setRoom] = useState(null);
+      const [done, setDone] = useState(new Set());
+      const [error, setError] = useState('');
+      const [isSubmitting, setIsSubmitting] = useState(false);
+
+      useEffect(() => {
+        fetch(`/api/rooms/${roomSlug}`)
+          .then(r => {
+            if (!r.ok) throw new Error(`HTTP ${r.status}`);
+            return r.json();
+          })
+          .then(d => {
+            setRoom(d.room);
+            const completed = JSON.parse(sessionStorage.getItem('roomreset_completed') || '[]');
+            setDone(new Set(completed));
+          })
+          .catch(err => {
+            setError(`Failed to load room: ${err.message}`);
+          });
+      }, []);
+
+      if (error) {
+        return (
+          <div className="screen">
+            <h2>Error</h2>
+            <p className="error">{error}</p>
+            <button className="back-btn" onClick={() => window.location.href = '/'}>Back to Home</button>
+          </div>
+        );
+      }
+
+      if (!room) return <div className="screen">Loading...</div>;
+
+      // Guard against empty steps array
+      if (room.steps.length === 0) {
+        return (
+          <div className="screen">
+            <h2>{room.name}</h2>
+            <p>This room has no steps configured.</p>
+            <button className="back-btn" onClick={() => window.location.href = '/'}>Back to Home</button>
+          </div>
+        );
+      }
+
+      const toggle = async (step) => {
+        if (done.has(step.title)) return; // steps are write-once, matches per-step timestamp model
+        setIsSubmitting(true);
+        setError('');
+        try {
+          const stepResp = await fetch(`/api/rooms/${roomSlug}/sessions/${rowIndex}/step`, {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ stepTitle: step.title })
+          });
+          if (!stepResp.ok) {
+            throw new Error(`Failed to mark step complete: HTTP ${stepResp.status}`);
+          }
+          const newDone = new Set([...done, step.title]);
+          setDone(newDone);
+          sessionStorage.setItem('roomreset_completed', JSON.stringify(Array.from(newDone)));
+        } catch (err) {
+          setError(err.message);
+        } finally {
+          setIsSubmitting(false);
+        }
+      };
+
+      const allDone = room.steps.every(s => done.has(s.title));
+
+      const finish = async () => {
+        setIsSubmitting(true);
+        setError('');
+        try {
+          const finishResp = await fetch(`/api/rooms/${roomSlug}/sessions/${rowIndex}/finish`, { method: 'POST' });
+          if (!finishResp.ok) {
+            throw new Error(`Failed to finish session: HTTP ${finishResp.status}`);
+          }
+          window.location.href = '/';
+        } catch (err) {
+          setError(err.message);
+        } finally {
+          setIsSubmitting(false);
+        }
+      };
+
+      return (
+        <div className="screen">
+          <h1>{room.name} — Quick List</h1>
+          {error && <p className="error">{error}</p>}
+          {room.steps.map(step => (
+            <label key={step.id}>
+              <input type="checkbox" checked={done.has(step.title)} onChange={() => toggle(step)} disabled={isSubmitting} />
+              {step.title}
+            </label>
+          ))}
+          <button disabled={!allDone || isSubmitting} onClick={finish}>
+            {isSubmitting ? 'Submitting...' : 'Finish Reset'}
+          </button>
+        </div>
+      );
+    }
+
+    ReactDOM.createRoot(document.getElementById('root')).render(<QuickList />);
+  </script>
+</body>
+</html>
