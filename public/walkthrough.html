@@ -62,6 +62,18 @@
       }
 
       if (!room) return <div className="screen">Loading...</div>;
+
+      // Guard against empty steps array
+      if (room.steps.length === 0) {
+        return (
+          <div className="screen">
+            <h2>{room.name}</h2>
+            <p>This room has no steps configured.</p>
+            <button className="back-btn" onClick={() => window.location.href = '/'}>Back to Home</button>
+          </div>
+        );
+      }
+
       const step = room.steps[stepIdx];
       const isLast = stepIdx === room.steps.length - 1;
 
@@ -95,10 +107,9 @@
 
       return (
         <div className="screen">
-          {error && <p className="error">{error}</p>}
           <p className="progress">Step {stepIdx + 1} of {room.steps.length}</p>
           <h2>{step.title}</h2>
-          {step.images.map(id => (
+          {(step.images || []).map(id => (
             <img key={id} src={`https://drive.google.com/uc?id=${id}`} alt={step.title} />
           ))}
           <p>{step.instructions}</p>
