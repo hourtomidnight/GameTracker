@@ -6,6 +6,7 @@ const multer = require('multer');
 const { getColumnValues, syncRoomSheetHeaders } = require('./lib/sheets');
 const { listRooms, getRoom, saveRoom } = require('./lib/rooms');
 const { uploadImageToDrive } = require('./lib/drive');
+const { findOpenSession, startSession, writeStepCell, finishSession } = require('./lib/sessions');
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -105,6 +106,65 @@ app.post('/api/rooms/:slug/image', isAuthenticated, upload.single('image'), asyn
     }
     console.error('Error uploading image to Drive:', error.message);
     res.status(500).json({ error: 'Failed to upload image' });
+  }
+});
+
+app.post('/api/rooms/:slug/sessions/start', isAuthenticated, async (req, res) => {
+  const room = getRoom(req.params.slug);
+  if (!room) return res.status(404).json({ error: 'Room not found' });
+  const { operator, helpers = [] } = req.body;
+  if (!operator || typeof operator !== 'string') {
+    return res.status(400).json({ error: 'operator is required' });
+  }
+  if (!Array.isArray(helpers)) {
+    return res.status(400).json({ error: 'helpers must be an array' });
+  }
+  try {
+    const open = await findOpenSession(room.sheetTab);
+    if (open) {
+      return res.json({ rowIndex: open.rowIndex, resumable: true, operator: open.operator, startTime: open.startTime, completedSteps: open.completedSteps });
+    }
+    const rowIndex = await startSession(room.sheetTab, operator, helpers);
+    res.json({ rowIndex, resumable: false, completedSteps: [] });
+  } catch (error) {
+    console.error('Error starting session:', error.message);
+    res.status(500).json({ error: 'Failed to start session' });
+  }
+});
+
+app.post('/api/rooms/:slug/sessions/:rowIndex/step', isAuthenticated, async (req, res) => {
+  const room = getRoom(req.params.slug);
+  if (!room) return res.status(404).json({ error: 'Room not found' });
+  const { stepTitle } = req.body;
+  const rowIndex = parseInt(req.params.rowIndex, 10);
+  if (!Number.isInteger(rowIndex) || rowIndex < 2) {
+    return res.status(400).json({ error: 'Invalid rowIndex' });
+  }
+  if (!stepTitle || typeof stepTitle !== 'string') {
+    return res.status(400).json({ error: 'stepTitle is required' });
+  }
+  try {
+    await writeStepCell(room.sheetTab, rowIndex, stepTitle);
+    res.json({ ok: true });
+  } catch (error) {
+    console.error('Error writing step:', error.message);
+    res.status(500).json({ error: 'Failed to write step' });
+  }
+});
+
+app.post('/api/rooms/:slug/sessions/:rowIndex/finish', isAuthenticated, async (req, res) => {
+  const room = getRoom(req.params.slug);
+  if (!room) return res.status(404).json({ error: 'Room not found' });
+  const rowIndex = parseInt(req.params.rowIndex, 10);
+  if (!Number.isInteger(rowIndex) || rowIndex < 2) {
+    return res.status(400).json({ error: 'Invalid rowIndex' });
+  }
+  try {
+    await finishSession(room.sheetTab, rowIndex);
+    res.json({ ok: true });
+  } catch (error) {
+    console.error('Error finishing session:', error.message);
+    res.status(500).json({ error: 'Failed to finish session' });
   }
 });
 
