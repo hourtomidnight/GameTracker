@@ -100,6 +100,8 @@
       const [links, setLinks] = useState([]);
       const [newLinkName, setNewLinkName] = useState('');
       const [newLinkUrl, setNewLinkUrl] = useState('');
+      const [newLinkDescription, setNewLinkDescription] = useState('');
+      const [newLinkIcon, setNewLinkIcon] = useState('');
       const [themeSettings, setThemeSettings] = useState({ preset: 'medium-contrast' });
 
       useEffect(() => {
@@ -129,18 +131,19 @@
           const coreLinks = [
             { id: 'core-1', name: 'Session Tracker', url: '/escape-room', internal: true, core: true },
             { id: 'core-2', name: 'Node-RED', url: '/nodered', internal: true, core: true },
-            { id: 'core-3', name: 'CSV Downloads', url: '/csv-downloads', internal: true, core: true }
+            { id: 'core-3', name: 'CSV Downloads', url: '/csv-downloads', internal: true, core: true },
+            { id: 'core-4', name: 'RoomReset', url: 'http://192.168.0.127:3001/', description: 'Escape room reset checklist', icon: '🔄', internal: false, core: true }
           ];
-          
+
           // Load user-added links
           const linksData = await window.storage.get('homeLinks');
           let userLinks = [];
-          
+
           if (linksData) {
             try {
               const parsed = JSON.parse(linksData.value);
               // Filter out any old core links and keep only user-added ones
-              userLinks = parsed.filter(link => !link.core && !['core-1', 'core-2', 'core-3'].includes(link.id));
+              userLinks = parsed.filter(link => !link.core && !['core-1', 'core-2', 'core-3', 'core-4'].includes(link.id));
             } catch (e) {
               console.error('Error parsing links:', e);
             }
@@ -154,7 +157,8 @@
           setLinks([
             { id: 'core-1', name: 'Session Tracker', url: '/escape-room', internal: true, core: true },
             { id: 'core-2', name: 'Node-RED', url: '/nodered', internal: true, core: true },
-            { id: 'core-3', name: 'CSV Downloads', url: '/csv-downloads', internal: true, core: true }
+            { id: 'core-3', name: 'CSV Downloads', url: '/csv-downloads', internal: true, core: true },
+            { id: 'core-4', name: 'RoomReset', url: 'http://192.168.0.127:3001/', description: 'Escape room reset checklist', icon: '🔄', internal: false, core: true }
           ]);
         }
       };
@@ -198,17 +202,21 @@
 
       const addLink = () => {
         if (!newLinkName.trim() || !newLinkUrl.trim()) return;
-        
+
         const isInternal = newLinkUrl.startsWith('/');
         const updated = [...links, {
           id: Date.now().toString(),
           name: newLinkName,
           url: newLinkUrl,
+          description: newLinkDescription.trim(),
+          icon: newLinkIcon.trim(),
           internal: isInternal
         }];
         saveLinks(updated);
         setNewLinkName('');
         setNewLinkUrl('');
+        setNewLinkDescription('');
+        setNewLinkIcon('');
       };
 
       const deleteLink = (id) => {
@@ -337,6 +345,23 @@
                       className="bg-slate-700/50 text-white p-4 rounded-xl border border-orange-500/30 focus:border-orange-400 focus:outline-none"
                     />
                   </div>
+                  <div className="grid grid-cols-2 gap-4 mb-4">
+                    <input
+                      type="text"
+                      value={newLinkDescription}
+                      onChange={(e) => setNewLinkDescription(e.target.value)}
+                      placeholder="Description (optional, e.g., 'Weekly schedule form')"
+                      className="bg-slate-700/50 text-white p-4 rounded-xl border border-orange-500/30 focus:border-orange-400 focus:outline-none"
+                    />
+                    <input
+                      type="text"
+                      value={newLinkIcon}
+                      onChange={(e) => setNewLinkIcon(e.target.value)}
+                      placeholder="Icon/emoji (optional, e.g., '📋')"
+                      maxLength={4}
+                      className="bg-slate-700/50 text-white p-4 rounded-xl border border-orange-500/30 focus:border-orange-400 focus:outline-none"
+                    />
+                  </div>
                   <button
                     onClick={addLink}
                     className="w-full bg-gradient-to-r from-orange-600 to-amber-600 text-white p-4 rounded-xl font-bold flex items-center justify-center gap-2 hover:from-orange-500 hover:to-amber-500 transition-all shadow-lg"
@@ -353,8 +378,9 @@
                       className="bg-slate-700/30 p-4 rounded-xl border border-orange-500/20 flex items-center justify-between"
                     >
                       <div>
-                        <div className="text-white font-semibold">{link.name}</div>
+                        <div className="text-white font-semibold">{link.icon && <span className="mr-2">{link.icon}</span>}{link.name}</div>
                         <div className="text-orange-300 text-sm">{link.url}</div>
+                        {link.description && <div className="text-orange-200 text-xs mt-1 italic">{link.description}</div>}
                         <div className="text-orange-400 text-xs mt-1">
                           {link.core ? 'Built-in Link' : (link.internal ? 'Internal Link' : 'External Link')}
                         </div>
@@ -407,11 +433,11 @@
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {links.map(link => {
-                // Get favicon URL for external links
-                const faviconUrl = link.internal 
-                  ? null 
+                // Get favicon URL for external links (used only when no custom icon is set)
+                const faviconUrl = link.icon || link.internal
+                  ? null
                   : `https://www.google.com/s2/favicons?domain=${link.url}&sz=64`;
-                
+
                 return (
                   <a
                     key={link.id}
@@ -421,10 +447,15 @@
                     className="bg-slate-800/50 backdrop-blur-lg p-8 rounded-2xl border border-orange-500/20 hover:border-orange-400/50 transition-all shadow-xl group"
                   >
                     <div className="flex items-center gap-4 mb-4">
+                      {link.icon && (
+                        <div className="w-12 h-12 rounded-lg bg-white/10 flex items-center justify-center text-2xl">
+                          {link.icon}
+                        </div>
+                      )}
                       {faviconUrl && (
-                        <img 
-                          src={faviconUrl} 
-                          alt="" 
+                        <img
+                          src={faviconUrl}
+                          alt=""
                           className="w-12 h-12 rounded-lg bg-white/10 p-2"
                           onError={(e) => e.target.style.display='none'}
                         />
@@ -433,6 +464,9 @@
                         <h2 className="text-2xl font-bold text-white group-hover:text-orange-400 transition-colors">
                           {link.name}
                         </h2>
+                        {link.description && (
+                          <p className="text-orange-200 text-sm mt-1">{link.description}</p>
+                        )}
                       </div>
                       {!link.internal && <ExternalLink size={20} className="text-orange-400/60" />}
                     </div>
