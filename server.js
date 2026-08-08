@@ -95,6 +95,9 @@ app.post('/api/rooms/:slug/image', isAuthenticated, upload.single('image'), asyn
     const result = await uploadImageToDrive(req.params.slug, req.file.buffer, req.file.mimetype);
     res.json(result);
   } catch (error) {
+    if (error.message.includes('Invalid slug')) {
+      return res.status(400).json({ error: error.message });
+    }
     console.error('Error uploading image to Drive:', error.message);
     res.status(500).json({ error: 'Failed to upload image' });
   }
