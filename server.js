@@ -2,6 +2,7 @@ const express = require('express');
 const session = require('express-session');
 const fs = require('fs');
 const path = require('path');
+const { getColumnValues } = require('./lib/sheets');
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -31,6 +32,16 @@ app.post('/api/login', (req, res) => {
 });
 
 app.get('/api/health', (req, res) => res.json({ ok: true }));
+
+app.get('/api/operators', isAuthenticated, async (req, res) => {
+  try {
+    const operators = await getColumnValues('Dropdown', 'A', 2);
+    res.json({ operators });
+  } catch (error) {
+    console.error('Error fetching operators:', error.message);
+    res.status(500).json({ error: 'Failed to fetch operators' });
+  }
+});
 
 app.listen(PORT, () => console.log(`RoomReset server running on port ${PORT}`));
 
