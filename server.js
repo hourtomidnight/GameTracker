@@ -11,6 +11,7 @@ const { findOpenSession, startSession, writeStepCell, finishSession } = require(
 const app = express();
 const PORT = process.env.PORT || 3001;
 
+app.use(express.static(path.join(__dirname, 'public')));
 app.use(express.json());
 app.use(session({
   secret: 'roomreset-session-secret',
@@ -35,7 +36,30 @@ app.post('/api/login', (req, res) => {
   return res.status(401).json({ error: 'Invalid password' });
 });
 
+app.get('/', (req, res) => {
+  try {
+    const content = fs.readFileSync(path.join(__dirname, 'public', 'reset.html'), 'utf8');
+    res.setHeader('Content-Type', 'text/html; charset=utf-8');
+    res.send(content);
+  } catch (error) {
+    console.error('Error serving reset.html:', error.message);
+    res.status(500).json({ error: 'Failed to load page' });
+  }
+});
+
 app.get('/api/health', (req, res) => res.json({ ok: true }));
+
+app.get('/debug', (req, res) => {
+  const publicPath = path.join(__dirname, 'public');
+  const resetPath = path.join(__dirname, 'public', 'reset.html');
+  res.json({
+    __dirname,
+    publicPath,
+    resetPath,
+    fileExists: fs.existsSync(resetPath),
+    publicDirExists: fs.existsSync(publicPath)
+  });
+});
 
 app.get('/api/operators', isAuthenticated, async (req, res) => {
   try {
