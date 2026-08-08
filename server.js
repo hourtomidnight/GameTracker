@@ -2,8 +2,10 @@ const express = require('express');
 const session = require('express-session');
 const fs = require('fs');
 const path = require('path');
+const multer = require('multer');
 const { getColumnValues } = require('./lib/sheets');
 const { listRooms, getRoom, saveRoom } = require('./lib/rooms');
+const { uploadImageToDrive } = require('./lib/drive');
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -82,6 +84,19 @@ app.post('/api/rooms/:slug', isAuthenticated, (req, res) => {
     }
     console.error('Error saving room:', error.message);
     res.status(500).json({ error: 'Failed to save room' });
+  }
+});
+
+const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 } });
+
+app.post('/api/rooms/:slug/image', isAuthenticated, upload.single('image'), async (req, res) => {
+  if (!req.file) return res.status(400).json({ error: 'No image uploaded' });
+  try {
+    const result = await uploadImageToDrive(req.params.slug, req.file.buffer, req.file.mimetype);
+    res.json(result);
+  } catch (error) {
+    console.error('Error uploading image to Drive:', error.message);
+    res.status(500).json({ error: 'Failed to upload image' });
   }
 });
 
