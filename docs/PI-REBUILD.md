@@ -68,13 +68,6 @@ Note: `nginx -v` may report "command not found" over a non-interactive SSH
 session depending on shell PATH setup — use `/usr/sbin/nginx -v` or
 `sudo systemctl is-active nginx` to confirm instead.
 
-## Status
-
-- [x] OS flashed, SSH key auth working, base packages installed (Task 1)
-- [ ] `htm-escape-tracker` redeployed (Task 2)
-- [ ] `RoomReset` deployed (Task 14)
-- [ ] Relocated to business network + IP reservation set there
-
 ## Task 2 completion notes (2026-08-08)
 
 - Old Google Cloud project's service account was gone (project itself
