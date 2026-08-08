@@ -74,3 +74,37 @@ session depending on shell PATH setup — use `/usr/sbin/nginx -v` or
 - [ ] `htm-escape-tracker` redeployed (Task 2)
 - [ ] `RoomReset` deployed (Task 14)
 - [ ] Relocated to business network + IP reservation set there
+
+## Task 2 completion notes (2026-08-08)
+
+- Old Google Cloud project's service account was gone (project itself
+  likely deleted along with old credentials). Recreated under project
+  `hour-to-midnight-tracker` (Google account `hourtomidnight.com@gmail.com`).
+- New service account: `htm-tracker-service@hour-to-midnight-tracker.iam.gserviceaccount.com`
+- Enabled both **Google Sheets API** and **Google Drive API** on this
+  project (Drive API needed for RoomReset's Task 14, enabled now to save a
+  round-trip).
+- Spreadsheet re-shared with the new service account email as Editor.
+- New JSON key generated and installed at
+  `~/escape-room-tracker/google-credentials.json` on the Pi (not committed).
+- Login password set (not documented here for security — see whoever
+  manages venue passwords).
+- nginx config simplified from the old reference `docs/nginx-htm.conf`
+  (which proxied to a separate home-page service on :8080 and Node-RED on
+  :1880, neither of which exist on this rebuild) — new config at
+  `/etc/nginx/sites-available/htm-tracker` proxies `/` straight to
+  `localhost:3000` since server.js already serves `/`, `/login`,
+  `/escape-room`, `/csv-downloads` directly. Old reference conf left
+  in the repo for history but is no longer what's deployed; update
+  `docs/nginx-htm.conf` on a future pass if Node-RED/home-page services get
+  reintroduced.
+- Verified end-to-end: login via `/api/auth/login` succeeds, authenticated
+  page loads (200), `/api/sheets/tabs` correctly returns the real room tabs
+  (`Pi-ADG`, `Pi-PLR`, `Pi-SON`, `Pi-COS`) from the live spreadsheet.
+
+## Status
+
+- [x] OS flashed, SSH key auth working, base packages installed (Task 1)
+- [x] `htm-escape-tracker` redeployed, verified working end-to-end (Task 2)
+- [ ] `RoomReset` deployed (Task 14)
+- [ ] Relocated to business network + IP reservation set there
