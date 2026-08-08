@@ -100,6 +100,14 @@ app.post('/api/rooms/:slug/image', isAuthenticated, upload.single('image'), asyn
   }
 });
 
+// Error handling middleware for multer and route errors
+app.use((err, req, res, next) => {
+  if (err instanceof multer.MulterError) {
+    return res.status(400).json({ error: err.message });
+  }
+  next(err);
+});
+
 app.listen(PORT, () => console.log(`RoomReset server running on port ${PORT}`));
 
 module.exports = { app, isAuthenticated };
