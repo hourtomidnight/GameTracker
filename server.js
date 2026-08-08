@@ -47,6 +47,10 @@ app.get('/', (req, res) => {
   }
 });
 
+app.get('/admin', (req, res) => {
+  res.sendFile('admin.html', { root: path.join(__dirname, 'public') });
+});
+
 app.get('/api/health', (req, res) => res.json({ ok: true }));
 
 app.get('/api/operators', isAuthenticated, async (req, res) => {

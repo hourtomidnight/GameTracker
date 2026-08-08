@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no" />
+  <title>RoomReset — Admin</title>
+  <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <style>
+    body { font-family: sans-serif; margin: 0; background: #111; color: #eee; }
+    .screen { padding: 24px; max-width: 480px; margin: 0 auto; }
+    input, textarea, select { width: 100%; padding: 10px; margin: 6px 0; font-size: 16px; box-sizing: border-box; }
+    .step-card { border: 1px solid #444; border-radius: 8px; padding: 12px; margin: 10px 0; }
+    .step-card img { width: 80px; height: 80px; object-fit: cover; border-radius: 4px; margin-right: 6px; }
+    button { padding: 10px; font-size: 16px; border: none; border-radius: 6px; margin: 4px 0; }
+    button:disabled { opacity: 0.6; }
+    .primary { background: #d63; color: white; width: 100%; }
+    .small { background: #333; color: #eee; }
+    .error { background: #611; color: #fbb; border: 1px solid #a33; border-radius: 6px; padding: 10px; margin: 10px 0; }
+    .status { color: #9c9; margin: 10px 0; }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+  <script type="text/babel">
+    const { useState, useEffect, useRef } = React;
+
+    function AdminBuilder() {
+      const [rooms, setRooms] = useState([]);
+      const [slug, setSlug] = useState('');
+      const [name, setName] = useState('');
+      const [sheetTab, setSheetTab] = useState('');
+      const [steps, setSteps] = useState([]);
+      const [draftTitle, setDraftTitle] = useState('');
+      const [draftInstructions, setDraftInstructions] = useState('');
+      const [draftImages, setDraftImages] = useState([]);
+      const [loadError, setLoadError] = useState('');
+      const [error, setError] = useState('');
+      const [status, setStatus] = useState('');
+      const [uploading, setUploading] = useState(false);
+      const [saving, setSaving] = useState(false);
+      const fileInput = useRef(null);
+
+      useEffect(() => {
+        fetch('/api/rooms')
+          .then(async (resp) => {
+            if (!resp.ok) {
+              throw new Error(`Failed to load rooms (status ${resp.status})`);
+            }
+            return resp.json();
+          })
+          .then(d => setRooms(d.rooms || []))
+          .catch(err => setLoadError(err.message || 'Failed to load rooms list.'));
+      }, []);
+
+      const loadRoom = async (s) => {
+        setError('');
+        setStatus('');
+        if (!s) { setSlug(''); setName(''); setSheetTab(''); setSteps([]); return; }
+        try {
+          const resp = await fetch(`/api/rooms/${s}`);
+          if (!resp.ok) {
+            setLoadError(`Failed to load room "${s}" (status ${resp.status}).`);
+            return;
+          }
+          const data = await resp.json();
+          setLoadError('');
+          setSlug(s); setName(data.room.name); setSheetTab(data.room.sheetTab); setSteps(data.room.steps || []);
+        } catch (err) {
+          setLoadError(err.message || `Failed to load room "${s}".`);
+        }
+      };
+
+      const capturePhoto = async (e) => {
+        const file = e.target.files[0];
+        e.target.value = '';
+        if (!file) return;
+        if (!slug) { setError('Set the room slug (Save once first) before adding photos.'); return; }
+        setError('');
+        setUploading(true);
+        try {
+          const form = new FormData();
+          form.append('image', file);
+          const resp = await fetch(`/api/rooms/${slug}/image`, { method: 'POST', body: form });
+          if (!resp.ok) {
+            let message = `Photo upload failed (status ${resp.status}).`;
+            try {
+              const errData = await resp.json();
+              if (errData && errData.error) message = errData.error;
+            } catch (_) { /* ignore body parse failure */ }
+            setError(message);
+            return;
+          }
+          const data = await resp.json();
+          if (!data || !data.driveFileId) {
+            setError('Photo upload succeeded but no file id was returned.');
+            return;
+          }
+          setDraftImages(imgs => [...imgs, data.driveFileId]);
+        } catch (err) {
+          setError(err.message || 'Photo upload failed.');
+        } finally {
+          setUploading(false);
+        }
+      };
+
+      const addStep = () => {
+        if (!draftTitle) { setError('Step title is required.'); return; }
+        setError('');
+        setSteps(s => [...s, { id: `step-${Date.now()}`, title: draftTitle, instructions: draftInstructions, images: draftImages }]);
+        setDraftTitle(''); setDraftInstructions(''); setDraftImages([]);
+      };
+
+      const removeStep = (id) => setSteps(s => s.filter(st => st.id !== id));
+      const moveStep = (idx, dir) => {
+        setSteps(s => {
+          const copy = [...s];
+          const j = idx + dir;
+          if (j < 0 || j >= copy.length) return copy;
+          [copy[idx], copy[j]] = [copy[j], copy[idx]];
+          return copy;
+        });
+      };
+
+      const save = async () => {
+        setError('');
+        setStatus('');
+        if (!slug || !name || !sheetTab) { setError('Slug, name, and sheet tab are required.'); return; }
+        if (!/^[a-z0-9-]+$/.test(slug)) { setError('Slug must contain only lowercase letters, numbers, and hyphens.'); return; }
+        setSaving(true);
+        try {
+          const resp = await fetch(`/api/rooms/${slug}`, {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ name, sheetTab, steps })
+          });
+          if (!resp.ok) {
+            let message = `Save failed (status ${resp.status}).`;
+            try {
+              const errData = await resp.json();
+              if (errData && errData.error) message = errData.error;
+            } catch (_) { /* ignore body parse failure */ }
+            setError(message);
+            return;
+          }
+          setStatus('Room saved.');
+          fetch('/api/rooms')
+            .then(r => (r.ok ? r.json() : Promise.reject(new Error(`status ${r.status}`))))
+            .then(d => setRooms(d.rooms || []))
+            .catch(() => { /* rooms list refresh is best-effort */ });
+        } catch (err) {
+          setError(err.message || 'Save failed.');
+        } finally {
+          setSaving(false);
+        }
+      };
+
+      return (
+        <div className="screen">
+          <h1>RoomReset Admin</h1>
+          {loadError && <div className="error">{loadError}</div>}
+          {error && <div className="error">{error}</div>}
+          {status && <div className="status">{status}</div>}
+          <select onChange={e => loadRoom(e.target.value)}>
+            <option value="">-- New Room --</option>
+            {rooms.map(r => <option key={r.slug} value={r.slug}>{r.name}</option>)}
+          </select>
+          <input placeholder="Room slug (e.g. pirates-cove)" value={slug}
+                 onChange={e => setSlug(e.target.value)} />
+          <input placeholder="Room name" value={name} onChange={e => setName(e.target.value)} />
+          <input placeholder="Sheet tab name (e.g. reset-pirates-cove)" value={sheetTab}
+                 onChange={e => setSheetTab(e.target.value)} />
+
+          <h3>Steps</h3>
+          {steps.map((s, idx) => (
+            <div className="step-card" key={s.id}>
+              <strong>{s.title}</strong>
+              <p>{s.instructions}</p>
+              {(s.images || []).map(id => <img key={id} src={`https://drive.google.com/uc?id=${id}`} alt="" />)}
+              <div>
+                <button className="small" onClick={() => moveStep(idx, -1)}>↑</button>
+                <button className="small" onClick={() => moveStep(idx, 1)}>↓</button>
+                <button className="small" onClick={() => removeStep(s.id)}>Delete</button>
+              </div>
+            </div>
+          ))}
+
+          <h3>Add Step</h3>
+          <input placeholder="Step title" value={draftTitle} onChange={e => setDraftTitle(e.target.value)} />
+          <textarea placeholder="Instructions" value={draftInstructions}
+                    onChange={e => setDraftInstructions(e.target.value)} />
+          <input type="file" accept="image/*" capture="environment" ref={fileInput} onChange={capturePhoto} disabled={uploading} />
+          <p>{uploading ? 'Uploading photo…' : `${draftImages.length} photo(s) captured`}</p>
+          <button className="small" onClick={addStep}>Next (Add Step)</button>
+
+          <button className="primary" onClick={save} disabled={saving}>{saving ? 'Saving…' : 'Save Room'}</button>
+        </div>
+      );
+    }
+
+    ReactDOM.createRoot(document.getElementById('root')).render(<AdminBuilder />);
+  </script>
+</body>
+</html>
