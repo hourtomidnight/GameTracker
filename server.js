@@ -49,18 +49,6 @@ app.get('/', (req, res) => {
 
 app.get('/api/health', (req, res) => res.json({ ok: true }));
 
-app.get('/debug', (req, res) => {
-  const publicPath = path.join(__dirname, 'public');
-  const resetPath = path.join(__dirname, 'public', 'reset.html');
-  res.json({
-    __dirname,
-    publicPath,
-    resetPath,
-    fileExists: fs.existsSync(resetPath),
-    publicDirExists: fs.existsSync(publicPath)
-  });
-});
-
 app.get('/api/operators', isAuthenticated, async (req, res) => {
   try {
     const operators = await getColumnValues('Dropdown', 'A', 2);

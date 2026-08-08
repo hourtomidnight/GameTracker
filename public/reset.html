@@ -49,10 +49,17 @@
       const [operator, setOperator] = useState('');
       const [helpers, setHelpers] = useState([]);
       const [mode, setMode] = useState('walkthrough');
+      const [loadError, setLoadError] = useState('');
 
       useEffect(() => {
-        fetch('/api/rooms').then(r => r.json()).then(d => setRooms(d.rooms || []));
-        fetch('/api/operators').then(r => r.json()).then(d => setOperators(d.operators || []));
+        fetch('/api/rooms')
+          .then(r => r.json())
+          .then(d => setRooms(d.rooms || []))
+          .catch(() => setLoadError('Failed to load rooms. Please refresh the page.'));
+        fetch('/api/operators')
+          .then(r => r.json())
+          .then(d => setOperators(d.operators || []))
+          .catch(() => setLoadError('Failed to load operators. Please refresh the page.'));
       }, []);
 
       const toggleHelper = (name) => {
@@ -60,11 +67,21 @@
       };
 
       const start = async () => {
-        const resp = await fetch(`/api/rooms/${roomSlug}/sessions/start`, {
-          method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ operator, helpers })
-        });
-        const data = await resp.json();
+        let resp, data;
+        try {
+          resp = await fetch(`/api/rooms/${roomSlug}/sessions/start`, {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ operator, helpers })
+          });
+          data = await resp.json();
+        } catch (err) {
+          alert('Failed to start session: network error. Please try again.');
+          return;
+        }
+        if (!resp.ok || !data.rowIndex) {
+          alert(`Failed to start session: ${data.error || 'Unknown error'}`);
+          return;
+        }
         if (data.resumable) {
           const proceed = confirm(
             `Resume session by ${data.operator} started at ${data.startTime}? ` +
@@ -80,6 +97,7 @@
       return (
         <div className="screen">
           <h1>RoomReset</h1>
+          {loadError && <p style={{ color: 'salmon' }}>{loadError}</p>}
           <select value={roomSlug} onChange={e => setRoomSlug(e.target.value)}>
             <option value="">Select Room</option>
             {rooms.map(r => <option key={r.slug} value={r.slug}>{r.name}</option>)}
