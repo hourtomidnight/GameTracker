@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no" />
+  <title>RoomReset — Walkthrough</title>
+  <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <style>
+    body { font-family: sans-serif; margin: 0; background: #111; color: #eee; }
+    .screen { padding: 24px; max-width: 480px; margin: 0 auto; }
+    img { width: 100%; border-radius: 8px; margin: 8px 0; }
+    button { padding: 14px; font-size: 18px; border: none; border-radius: 6px; margin: 6px 0; width: 100%; }
+    .reset-btn { background: #2a4; color: white; }
+    .back-btn { background: #444; color: white; }
+    .progress { opacity: 0.7; }
+    .error { background: #833; color: #fcc; padding: 12px; border-radius: 6px; margin: 8px 0; }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+  <script type="text/babel">
+    const { useState, useEffect } = React;
+    const params = new URLSearchParams(window.location.search);
+    const roomSlug = params.get('room');
+    const rowIndex = params.get('row');
+
+    function Walkthrough() {
+      const [room, setRoom] = useState(null);
+      const [stepIdx, setStepIdx] = useState(0);
+      const [done, setDone] = useState(new Set());
+      const [error, setError] = useState('');
+      const [isSubmitting, setIsSubmitting] = useState(false);
+
+      useEffect(() => {
+        fetch(`/api/rooms/${roomSlug}`)
+          .then(r => {
+            if (!r.ok) throw new Error(`HTTP ${r.status}`);
+            return r.json();
+          })
+          .then(d => {
+            setRoom(d.room);
+            const completed = JSON.parse(sessionStorage.getItem('roomreset_completed') || '[]');
+            setDone(new Set(completed));
+            const firstUndone = d.room.steps.findIndex(s => !completed.includes(s.title));
+            setStepIdx(firstUndone === -1 ? 0 : firstUndone);
+          })
+          .catch(err => {
+            setError(`Failed to load room: ${err.message}`);
+          });
+      }, []);
+
+      if (error) {
+        return (
+          <div className="screen">
+            <h2>Error</h2>
+            <p className="error">{error}</p>
+            <button className="back-btn" onClick={() => window.location.href = '/'}>Back to Home</button>
+          </div>
+        );
+      }
+
+      if (!room) return <div className="screen">Loading...</div>;
+      const step = room.steps[stepIdx];
+      const isLast = stepIdx === room.steps.length - 1;
+
+      const confirmReset = async () => {
+        setIsSubmitting(true);
+        setError('');
+        try {
+          const stepResp = await fetch(`/api/rooms/${roomSlug}/sessions/${rowIndex}/step`, {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ stepTitle: step.title })
+          });
+          if (!stepResp.ok) {
+            throw new Error(`Failed to mark step complete: HTTP ${stepResp.status}`);
+          }
+          setDone(d => new Set([...d, step.title]));
+          if (isLast) {
+            const finishResp = await fetch(`/api/rooms/${roomSlug}/sessions/${rowIndex}/finish`, { method: 'POST' });
+            if (!finishResp.ok) {
+              throw new Error(`Failed to finish session: HTTP ${finishResp.status}`);
+            }
+            window.location.href = '/';
+          } else {
+            setStepIdx(i => i + 1);
+          }
+        } catch (err) {
+          setError(err.message);
+        } finally {
+          setIsSubmitting(false);
+        }
+      };
+
+      return (
+        <div className="screen">
+          {error && <p className="error">{error}</p>}
+          <p className="progress">Step {stepIdx + 1} of {room.steps.length}</p>
+          <h2>{step.title}</h2>
+          {step.images.map(id => (
+            <img key={id} src={`https://drive.google.com/uc?id=${id}`} alt={step.title} />
+          ))}
+          <p>{step.instructions}</p>
+          <button className="reset-btn" onClick={confirmReset} disabled={isSubmitting}>
+            {isSubmitting ? 'Submitting...' : 'Reset ✅'}
+          </button>
+          {stepIdx > 0 && (
+            <button className="back-btn" onClick={() => { setError(''); setStepIdx(i => i - 1); }} disabled={isSubmitting}>Back</button>
+          )}
+        </div>
+      );
+    }
+
+    ReactDOM.createRoot(document.getElementById('root')).render(<Walkthrough />);
+  </script>
+</body>
+</html>
