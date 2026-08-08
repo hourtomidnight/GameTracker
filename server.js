@@ -45,22 +45,44 @@ app.get('/api/operators', isAuthenticated, async (req, res) => {
 });
 
 app.get('/api/rooms', isAuthenticated, (req, res) => {
-  res.json({ rooms: listRooms() });
+  try {
+    const rooms = listRooms();
+    res.json({ rooms });
+  } catch (error) {
+    console.error('Error listing rooms:', error.message);
+    res.status(500).json({ error: 'Failed to list rooms' });
+  }
 });
 
 app.get('/api/rooms/:slug', isAuthenticated, (req, res) => {
-  const room = getRoom(req.params.slug);
-  if (!room) return res.status(404).json({ error: 'Room not found' });
-  res.json({ room });
+  try {
+    const room = getRoom(req.params.slug);
+    if (!room) return res.status(404).json({ error: 'Room not found' });
+    res.json({ room });
+  } catch (error) {
+    if (error.message.includes('Invalid slug')) {
+      return res.status(400).json({ error: error.message });
+    }
+    console.error('Error getting room:', error.message);
+    res.status(500).json({ error: 'Failed to get room' });
+  }
 });
 
 app.post('/api/rooms/:slug', isAuthenticated, (req, res) => {
-  const { name, sheetTab, steps } = req.body;
-  if (!name || !sheetTab || !Array.isArray(steps)) {
-    return res.status(400).json({ error: 'name, sheetTab, and steps[] are required' });
+  try {
+    const { name, sheetTab, steps } = req.body;
+    if (!name || !sheetTab || !Array.isArray(steps)) {
+      return res.status(400).json({ error: 'name, sheetTab, and steps[] are required' });
+    }
+    const saved = saveRoom(req.params.slug, { name, sheetTab, steps });
+    res.json({ room: saved });
+  } catch (error) {
+    if (error.message.includes('Invalid slug')) {
+      return res.status(400).json({ error: error.message });
+    }
+    console.error('Error saving room:', error.message);
+    res.status(500).json({ error: 'Failed to save room' });
   }
-  const saved = saveRoom(req.params.slug, { name, sheetTab, steps });
-  res.json({ room: saved });
 });
 
 app.listen(PORT, () => console.log(`RoomReset server running on port ${PORT}`));
