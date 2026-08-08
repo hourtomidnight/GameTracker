@@ -14,7 +14,7 @@ const PORT = process.env.PORT || 3001;
 app.use(express.static(path.join(__dirname, 'public')));
 app.use(express.json());
 app.use(session({
-  secret: 'roomreset-session-secret',
+  secret: process.env.ROOMRESET_SESSION_SECRET || require('crypto').randomBytes(32).toString('hex'),
   resave: false,
   saveUninitialized: false,
   cookie: { maxAge: 24 * 60 * 60 * 1000 }
@@ -52,6 +52,10 @@ app.get('/admin', (req, res) => {
 });
 
 app.get('/api/health', (req, res) => res.json({ ok: true }));
+
+app.get('/api/session', (req, res) => {
+  res.json({ authenticated: !!(req.session && req.session.authenticated) });
+});
 
 app.get('/api/operators', isAuthenticated, async (req, res) => {
   try {
@@ -93,6 +97,23 @@ app.post('/api/rooms/:slug', isAuthenticated, async (req, res) => {
     if (!name || !sheetTab || !Array.isArray(steps)) {
       return res.status(400).json({ error: 'name, sheetTab, and steps[] are required' });
     }
+    const RESERVED_TITLES = ['operator', 'helpers', 'date', 'start time', 'end time'];
+    const seenTitles = new Set();
+    for (const step of steps) {
+      const rawTitle = typeof step.title === 'string' ? step.title : '';
+      const trimmed = rawTitle.trim();
+      if (!trimmed) {
+        return res.status(400).json({ error: 'Step titles cannot be empty' });
+      }
+      const normalized = trimmed.toLowerCase();
+      if (RESERVED_TITLES.includes(normalized)) {
+        return res.status(400).json({ error: `Step title "${trimmed}" conflicts with a reserved column name` });
+      }
+      if (seenTitles.has(normalized)) {
+        return res.status(400).json({ error: `Duplicate step title "${trimmed}" is not allowed` });
+      }
+      seenTitles.add(normalized);
+    }
     const saved = saveRoom(req.params.slug, { name, sheetTab, steps });
     try {
       await syncRoomSheetHeaders(sheetTab, steps);
@@ -128,7 +149,7 @@ app.post('/api/rooms/:slug/image', isAuthenticated, upload.single('image'), asyn
 app.post('/api/rooms/:slug/sessions/start', isAuthenticated, async (req, res) => {
   const room = getRoom(req.params.slug);
   if (!room) return res.status(404).json({ error: 'Room not found' });
-  const { operator, helpers = [] } = req.body;
+  const { operator, helpers = [], force = false } = req.body;
   if (!operator || typeof operator !== 'string') {
     return res.status(400).json({ error: 'operator is required' });
   }
@@ -136,7 +157,7 @@ app.post('/api/rooms/:slug/sessions/start', isAuthenticated, async (req, res) =>
     return res.status(400).json({ error: 'helpers must be an array' });
   }
   try {
-    const open = await findOpenSession(room.sheetTab);
+    const open = force ? null : await findOpenSession(room.sheetTab);
     if (open) {
       return res.json({ rowIndex: open.rowIndex, resumable: true, operator: open.operator, startTime: open.startTime, completedSteps: open.completedSteps });
     }

@@ -37,10 +37,15 @@
       useEffect(() => {
         fetch(`/api/rooms/${roomSlug}`)
           .then(r => {
+            if (r.status === 401) {
+              window.location.href = '/';
+              return null;
+            }
             if (!r.ok) throw new Error(`HTTP ${r.status}`);
             return r.json();
           })
           .then(d => {
+            if (!d) return;
             setRoom(d.room);
             const completed = JSON.parse(sessionStorage.getItem('roomreset_completed') || '[]');
             setDone(new Set(completed));
@@ -82,6 +87,10 @@
             method: 'POST', headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ stepTitle: step.title })
           });
+          if (stepResp.status === 401) {
+            window.location.href = '/';
+            return;
+          }
           if (!stepResp.ok) {
             throw new Error(`Failed to mark step complete: HTTP ${stepResp.status}`);
           }
@@ -102,6 +111,10 @@
         setError('');
         try {
           const finishResp = await fetch(`/api/rooms/${roomSlug}/sessions/${rowIndex}/finish`, { method: 'POST' });
+          if (finishResp.status === 401) {
+            window.location.href = '/';
+            return;
+          }
           if (!finishResp.ok) {
             throw new Error(`Failed to finish session: HTTP ${finishResp.status}`);
           }

@@ -47,6 +47,10 @@
       useEffect(() => {
         fetch('/api/rooms')
           .then(async (resp) => {
+            if (resp.status === 401) {
+              window.location.href = '/';
+              return { rooms: [] };
+            }
             if (!resp.ok) {
               throw new Error(`Failed to load rooms (status ${resp.status})`);
             }
@@ -62,6 +66,10 @@
         if (!s) { setSlug(''); setName(''); setSheetTab(''); setSteps([]); return; }
         try {
           const resp = await fetch(`/api/rooms/${s}`);
+          if (resp.status === 401) {
+            window.location.href = '/';
+            return;
+          }
           if (!resp.ok) {
             setLoadError(`Failed to load room "${s}" (status ${resp.status}).`);
             return;
@@ -85,6 +93,10 @@
           const form = new FormData();
           form.append('image', file);
           const resp = await fetch(`/api/rooms/${slug}/image`, { method: 'POST', body: form });
+          if (resp.status === 401) {
+            window.location.href = '/';
+            return;
+          }
           if (!resp.ok) {
             let message = `Photo upload failed (status ${resp.status}).`;
             try {
@@ -136,6 +148,10 @@
             method: 'POST', headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ name, sheetTab, steps })
           });
+          if (resp.status === 401) {
+            window.location.href = '/';
+            return;
+          }
           if (!resp.ok) {
             let message = `Save failed (status ${resp.status}).`;
             try {

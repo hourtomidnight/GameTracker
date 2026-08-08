@@ -68,12 +68,12 @@
         setHelpers(h => h.includes(name) ? h.filter(x => x !== name) : [...h, name]);
       };
 
-      const start = async () => {
+      const start = async (force = false) => {
         let resp, data;
         try {
           resp = await fetch(`/api/rooms/${roomSlug}/sessions/start`, {
             method: 'POST', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ operator, helpers })
+            body: JSON.stringify({ operator, helpers, force })
           });
           data = await resp.json();
         } catch (err) {
@@ -89,7 +89,10 @@
             `Resume session by ${data.operator} started at ${data.startTime}? ` +
             `(${data.completedSteps.length} steps done)`
           );
-          if (!proceed) return; // Task 10/11 will handle "start fresh" branch
+          if (!proceed) {
+            // Operator declined resuming - start a brand-new session row instead.
+            return start(true);
+          }
         }
         sessionStorage.setItem('roomreset_completed', JSON.stringify(data.completedSteps || []));
         const url = `${mode}.html?room=${roomSlug}&row=${data.rowIndex}`;
@@ -120,13 +123,24 @@
             <option value="walkthrough">Walkthrough</option>
             <option value="quicklist">Quick List</option>
           </select>
-          <button disabled={!roomSlug || !operator} onClick={start}>Start</button>
+          <button disabled={!roomSlug || !operator} onClick={() => start(false)}>Start</button>
         </div>
       );
     }
 
     function App() {
       const [loggedIn, setLoggedIn] = useState(false);
+      const [checking, setChecking] = useState(true);
+
+      useEffect(() => {
+        fetch('/api/session')
+          .then(r => r.json())
+          .then(d => { if (d.authenticated) setLoggedIn(true); })
+          .catch(() => {})
+          .finally(() => setChecking(false));
+      }, []);
+
+      if (checking) return <div className="screen"><h1>RoomReset</h1></div>;
       return loggedIn ? <HomeScreen /> : <LoginScreen onLoggedIn={() => setLoggedIn(true)} />;
     }
 
