@@ -95,13 +95,6 @@ session depending on shell PATH setup — use `/usr/sbin/nginx -v` or
   page loads (200), `/api/sheets/tabs` correctly returns the real room tabs
   (`Pi-ADG`, `Pi-PLR`, `Pi-SON`, `Pi-COS`) from the live spreadsheet.
 
-## Status
-
-- [x] OS flashed, SSH key auth working, base packages installed (Task 1)
-- [x] `htm-escape-tracker` redeployed, verified working end-to-end (Task 2)
-- [ ] `RoomReset` deployed (Task 14)
-- [ ] Relocated to business network + IP reservation set there
-
 ## Task 14 completion notes (2026-08-08)
 
 - RoomReset deployed to `~/roomreset` on the Pi, run via pm2 as
