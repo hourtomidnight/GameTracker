@@ -174,3 +174,38 @@ session depending on shell PATH setup — use `/usr/sbin/nginx -v` or
       RoomReset URL (self-resolving, see above); `HTM-PI-Web.local` should
       keep working too via mDNS, but confirm the business network doesn't
       block mDNS traffic (some managed/enterprise wifi does)
+
+## RoomReset image storage — revised (2026-08-08)
+
+Live testing surfaced a hard Google constraint the design didn't
+anticipate: **service accounts have zero storage quota on a personal
+(non-Workspace) Google Drive** — confirmed via `Insufficient permissions
+for the specified parent` (when shared as Viewer) and then `Service
+Accounts do not have storage quota` (even after fixing the share to
+Editor). No amount of folder-permission tuning fixes this; it's an
+unconditional Google-side restriction outside Shared Drives or real-user
+OAuth delegation, neither viable for this venue's plain Gmail account.
+
+**Resolution — dual-source images**, each step photo now carries a
+`source` tag (`local` or `drive`):
+- **Local** (default, via the Admin builder's camera capture): saved to
+  `data/reset-images/<room-slug>/` on the Pi, served via `/images/...`.
+  `lib/images.js`. This replaced the old `lib/drive.js` write path
+  entirely (deleted).
+- **Drive** (optional, for photos already living in the shared
+  `WEB-ResetTracker` Drive folder, manually uploaded there via a real
+  Google account — not the service account): the Admin builder's "Browse
+  Drive Photos" picker lists files via a **read-only** Drive scope
+  (reading has no quota restriction, only writing does), and the server
+  proxies the actual image bytes through `/api/drive-image/:fileId` so
+  tablets never need direct/public access to the Drive file.
+  `lib/driveImages.js`.
+
+Both render identically in the app (same `<img src={...url}>` pattern);
+the `source` tag exists purely so images can be told apart and migrated
+between storage locations later if needed.
+
+Verified end-to-end on the Pi: local upload → file written → servable via
+`/images/...` (200). Drive listing endpoint verified reachable (returns
+empty array until photos are actually placed in the Drive folder — that's
+expected, not tested with an image finally uploaded to it yet).
