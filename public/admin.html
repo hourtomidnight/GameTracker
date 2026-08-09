@@ -175,7 +175,10 @@
 
       return (
         <div className="screen">
-          <h1>RoomReset Admin</h1>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <h1>RoomReset Admin</h1>
+            <a href="/" style={{ color: '#dd6633' }}>Home</a>
+          </div>
           {loadError && <div className="error">{loadError}</div>}
           {error && <div className="error">{error}</div>}
           {status && <div className="status">{status}</div>}

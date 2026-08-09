@@ -101,7 +101,10 @@
 
       return (
         <div className="screen">
-          <h1>RoomReset</h1>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <h1>RoomReset</h1>
+            <a href="/admin" style={{ color: '#dd6633' }}>Admin</a>
+          </div>
           {loadError && <p style={{ color: 'salmon' }}>{loadError}</p>}
           <select value={roomSlug} onChange={e => setRoomSlug(e.target.value)}>
             <option value="">Select Room</option>
