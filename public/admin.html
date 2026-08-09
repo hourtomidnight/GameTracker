@@ -14,7 +14,17 @@
     .screen { padding: 24px; max-width: 480px; margin: 0 auto; }
     input, textarea, select { width: 100%; padding: 10px; margin: 6px 0; font-size: 16px; box-sizing: border-box; }
     .step-card { border: 1px solid #444; border-radius: 8px; padding: 12px; margin: 10px 0; }
-    .step-card img { width: 80px; height: 80px; object-fit: cover; border-radius: 4px; margin-right: 6px; }
+    .image-thumb { position: relative; display: inline-block; margin: 0 6px 6px 0; }
+    .image-thumb img { width: 80px; height: 80px; object-fit: cover; border-radius: 4px; display: block; }
+    .source-badge {
+      position: absolute; bottom: 2px; left: 2px; font-size: 10px; font-weight: bold;
+      padding: 1px 5px; border-radius: 4px; color: white;
+    }
+    .source-badge.local { background: #2a4; }
+    .source-badge.drive { background: #48c; }
+    .drive-picker { border: 1px solid #444; border-radius: 8px; padding: 12px; margin: 10px 0; max-height: 300px; overflow-y: auto; }
+    .drive-picker .image-thumb { cursor: pointer; border: 2px solid transparent; border-radius: 6px; }
+    .drive-picker .image-thumb:hover { border-color: #dd6633; }
     button { padding: 10px; font-size: 16px; border: none; border-radius: 6px; margin: 4px 0; }
     button:disabled { opacity: 0.6; }
     .primary { background: #d63; color: white; width: 100%; }
@@ -42,6 +52,9 @@
       const [status, setStatus] = useState('');
       const [uploading, setUploading] = useState(false);
       const [saving, setSaving] = useState(false);
+      const [driveImages, setDriveImages] = useState([]);
+      const [showDrivePicker, setShowDrivePicker] = useState(false);
+      const [loadingDriveImages, setLoadingDriveImages] = useState(false);
       const fileInput = useRef(null);
 
       useEffect(() => {
@@ -107,16 +120,46 @@
             return;
           }
           const data = await resp.json();
-          if (!data || !data.driveFileId) {
-            setError('Photo upload succeeded but no file id was returned.');
+          if (!data || !data.url) {
+            setError('Photo upload succeeded but no image URL was returned.');
             return;
           }
-          setDraftImages(imgs => [...imgs, data.driveFileId]);
+          setDraftImages(imgs => [...imgs, { source: 'local', url: data.url }]);
         } catch (err) {
           setError(err.message || 'Photo upload failed.');
         } finally {
           setUploading(false);
         }
+      };
+
+      const openDrivePicker = async () => {
+        setError('');
+        setShowDrivePicker(true);
+        setLoadingDriveImages(true);
+        try {
+          const resp = await fetch('/api/drive-images');
+          if (resp.status === 401) {
+            window.location.href = '/';
+            return;
+          }
+          if (!resp.ok) throw new Error(`Failed to list Drive photos (status ${resp.status}).`);
+          const data = await resp.json();
+          setDriveImages(data.images || []);
+        } catch (err) {
+          setError(err.message || 'Failed to list Drive photos.');
+          setShowDrivePicker(false);
+        } finally {
+          setLoadingDriveImages(false);
+        }
+      };
+
+      const pickDriveImage = (img) => {
+        setDraftImages(imgs => [...imgs, { source: 'drive', url: `/api/drive-image/${img.id}`, driveFileId: img.id }]);
+        setShowDrivePicker(false);
+      };
+
+      const removeDraftImage = (idx) => {
+        setDraftImages(imgs => imgs.filter((_, i) => i !== idx));
       };
 
       const addStep = () => {
@@ -197,7 +240,12 @@
             <div className="step-card" key={s.id}>
               <strong>{s.title}</strong>
               <p>{s.instructions}</p>
-              {(s.images || []).map(id => <img key={id} src={`https://drive.google.com/uc?id=${id}`} alt="" />)}
+              {(s.images || []).map((img, i) => (
+                <div className="image-thumb" key={img.url || i}>
+                  <img src={img.url} alt="" />
+                  <span className={`source-badge ${img.source}`}>{img.source === 'drive' ? 'Drive' : 'Local'}</span>
+                </div>
+              ))}
               <div>
                 <button className="small" onClick={() => moveStep(idx, -1)}>↑</button>
                 <button className="small" onClick={() => moveStep(idx, 1)}>↓</button>
@@ -211,7 +259,38 @@
           <textarea placeholder="Instructions" value={draftInstructions}
                     onChange={e => setDraftInstructions(e.target.value)} />
           <input type="file" accept="image/*" capture="environment" ref={fileInput} onChange={capturePhoto} disabled={uploading} />
-          <p>{uploading ? 'Uploading photo…' : `${draftImages.length} photo(s) captured`}</p>
+          <button className="small" onClick={openDrivePicker} disabled={uploading}>Browse Drive Photos</button>
+          <p>{uploading ? 'Uploading photo…' : `${draftImages.length} photo(s) attached`}</p>
+
+          {draftImages.length > 0 && (
+            <div>
+              {draftImages.map((img, i) => (
+                <div className="image-thumb" key={img.url}>
+                  <img src={img.url} alt="" />
+                  <span className={`source-badge ${img.source}`}>{img.source === 'drive' ? 'Drive' : 'Local'}</span>
+                  <button className="small" style={{ width: '100%', marginTop: 2 }} onClick={() => removeDraftImage(i)}>✕</button>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {showDrivePicker && (
+            <div className="drive-picker">
+              <p>
+                {loadingDriveImages ? 'Loading Drive photos…' : `${driveImages.length} photo(s) found in the shared folder`}
+                <button className="small" style={{ float: 'right' }} onClick={() => setShowDrivePicker(false)}>Close</button>
+              </p>
+              {driveImages.map(img => (
+                <div className="image-thumb" key={img.id} onClick={() => pickDriveImage(img)} title={img.name}>
+                  <img src={`/api/drive-image/${img.id}`} alt={img.name} />
+                </div>
+              ))}
+              {!loadingDriveImages && driveImages.length === 0 && (
+                <p>No photos found. Upload photos to the shared Drive folder first, then reopen this picker.</p>
+              )}
+            </div>
+          )}
+
           <button className="small" onClick={addStep}>Next (Add Step)</button>
 
           <button className="primary" onClick={save} disabled={saving}>{saving ? 'Saving…' : 'Save Room'}</button>

@@ -126,8 +126,8 @@
         <div className="screen">
           <p className="progress">Step {stepIdx + 1} of {room.steps.length}</p>
           <h2>{step.title}</h2>
-          {(step.images || []).map(id => (
-            <img key={id} src={`https://drive.google.com/uc?id=${id}`} alt={step.title} />
+          {(step.images || []).map(img => (
+            <img key={img.url} src={img.url} alt={step.title} />
           ))}
           <p>{step.instructions}</p>
           <button className="reset-btn" onClick={confirmReset} disabled={isSubmitting}>

@@ -5,13 +5,15 @@ const path = require('path');
 const multer = require('multer');
 const { getColumnValues, syncRoomSheetHeaders } = require('./lib/sheets');
 const { listRooms, getRoom, saveRoom } = require('./lib/rooms');
-const { uploadImageToDrive } = require('./lib/drive');
+const { saveImage, IMAGES_DIR } = require('./lib/images');
+const { listDriveImages, streamDriveImage } = require('./lib/driveImages');
 const { findOpenSession, startSession, writeStepCell, finishSession } = require('./lib/sessions');
 
 const app = express();
 const PORT = process.env.PORT || 3001;
 
 app.use(express.static(path.join(__dirname, 'public')));
+app.use('/images', express.static(IMAGES_DIR));
 app.use(express.json());
 app.use(session({
   secret: process.env.ROOMRESET_SESSION_SECRET || require('crypto').randomBytes(32).toString('hex'),
@@ -135,14 +137,33 @@ const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 
 app.post('/api/rooms/:slug/image', isAuthenticated, upload.single('image'), async (req, res) => {
   if (!req.file) return res.status(400).json({ error: 'No image uploaded' });
   try {
-    const result = await uploadImageToDrive(req.params.slug, req.file.buffer, req.file.mimetype);
+    const result = saveImage(req.params.slug, req.file.buffer, req.file.mimetype);
     res.json(result);
   } catch (error) {
     if (error.message.includes('Invalid slug')) {
       return res.status(400).json({ error: error.message });
     }
-    console.error('Error uploading image to Drive:', error.message);
-    res.status(500).json({ error: 'Failed to upload image' });
+    console.error('Error saving image:', error.message);
+    res.status(500).json({ error: 'Failed to save image' });
+  }
+});
+
+app.get('/api/drive-images', isAuthenticated, async (req, res) => {
+  try {
+    const images = await listDriveImages();
+    res.json({ images });
+  } catch (error) {
+    console.error('Error listing Drive images:', error.message);
+    res.status(500).json({ error: 'Failed to list Drive images' });
+  }
+});
+
+app.get('/api/drive-image/:fileId', isAuthenticated, async (req, res) => {
+  try {
+    await streamDriveImage(req.params.fileId, res);
+  } catch (error) {
+    console.error('Error streaming Drive image:', error.message);
+    res.status(500).json({ error: 'Failed to load image' });
   }
 });
 

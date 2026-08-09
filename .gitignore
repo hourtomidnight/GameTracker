@@ -3,3 +3,4 @@ data/password.txt
 google-credentials.json
 data/reset-rooms/*.json
 !data/reset-rooms/.gitkeep
+data/reset-images/
