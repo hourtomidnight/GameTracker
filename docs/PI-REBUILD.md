@@ -151,10 +151,16 @@ session depending on shell PATH setup — use `/usr/sbin/nginx -v` or
 
 - Extended the existing "Manage Links" feature (already built) with
   optional description and icon/emoji fields per link.
-- Added RoomReset as a fourth built-in core link, pointing to
-  `http://192.168.0.127:3001/`. **This URL will need updating once the Pi
-  moves to the business network** — search `home.html` for `core-4` and
-  the tracker/CLAUDE.md docs for other IP references at that time.
+- Added RoomReset as a fourth built-in core link. Initially hardcoded to
+  `http://192.168.0.127:3001/`, then changed to derive the host dynamically
+  from `window.location.hostname` (`core-4` in `home.html`) so it
+  automatically resolves correctly regardless of which IP/hostname the
+  tracker itself is being accessed from — no edit needed when the Pi moves
+  networks.
+- Confirmed `avahi-daemon` (mDNS) is already active on the Pi, so
+  `http://HTM-PI-Web.local/` resolves on any LAN it's plugged into without
+  any DHCP reservation — a convenient hostname-based alternative/backup to
+  remembering the current IP, on top of the dynamic-link fix above.
 
 ## Status
 
@@ -164,6 +170,7 @@ session depending on shell PATH setup — use `/usr/sbin/nginx -v` or
       live Sheets/Drive end-to-end test still pending (Task 14)
 - [x] Node-RED installed and running (not in original plan, added per
       request)
-- [ ] Relocated to business network + IP reservation set there — **when
-      this happens, update RoomReset's URL in `home.html` (currently
-      hardcoded to `192.168.0.127:3001`)**
+- [ ] Relocated to business network — no doc/link updates needed for the
+      RoomReset URL (self-resolving, see above); `HTM-PI-Web.local` should
+      keep working too via mDNS, but confirm the business network doesn't
+      block mDNS traffic (some managed/enterprise wifi does)
