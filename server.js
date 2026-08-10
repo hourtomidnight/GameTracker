@@ -3,7 +3,8 @@ const session = require('express-session');
 const fs = require('fs');
 const path = require('path');
 const multer = require('multer');
-const { getColumnValues, syncRoomSheetHeaders } = require('./lib/sheets');
+const { getColumnValues, listSheetTabs, syncRoomSheetHeaders } = require('./lib/sheets');
+const { getSettings, saveSettings } = require('./lib/settings');
 const { listRooms, getRoom, saveRoom } = require('./lib/rooms');
 const { saveImage, IMAGES_DIR } = require('./lib/images');
 const { listDriveImages, streamDriveImage } = require('./lib/driveImages');
@@ -61,11 +62,46 @@ app.get('/api/session', (req, res) => {
 
 app.get('/api/operators', isAuthenticated, async (req, res) => {
   try {
-    const operators = await getColumnValues('Dropdown', 'A', 2);
+    const { operatorsTab, operatorsColumn, operatorsStartRow } = getSettings();
+    if (!operatorsTab) {
+      return res.json({ operators: [] });
+    }
+    const operators = await getColumnValues(operatorsTab, operatorsColumn, operatorsStartRow);
     res.json({ operators });
   } catch (error) {
     console.error('Error fetching operators:', error.message);
     res.status(500).json({ error: 'Failed to fetch operators' });
+  }
+});
+
+app.get('/api/settings', isAuthenticated, (req, res) => {
+  res.json({ settings: getSettings() });
+});
+
+app.post('/api/settings', isAuthenticated, (req, res) => {
+  const { operatorsTab, operatorsColumn, operatorsStartRow } = req.body;
+  if (operatorsColumn && !/^[A-Z]{1,2}$/.test(operatorsColumn)) {
+    return res.status(400).json({ error: 'Column must be one or two letters (e.g. A, B, AA).' });
+  }
+  const startRow = operatorsStartRow !== undefined ? parseInt(operatorsStartRow, 10) : undefined;
+  if (startRow !== undefined && (!Number.isInteger(startRow) || startRow < 1)) {
+    return res.status(400).json({ error: 'Start row must be a positive integer.' });
+  }
+  const updated = saveSettings({
+    ...(operatorsTab !== undefined && { operatorsTab }),
+    ...(operatorsColumn !== undefined && { operatorsColumn }),
+    ...(startRow !== undefined && { operatorsStartRow: startRow })
+  });
+  res.json({ settings: updated });
+});
+
+app.get('/api/sheet-tabs', isAuthenticated, async (req, res) => {
+  try {
+    const tabs = await listSheetTabs();
+    res.json({ tabs });
+  } catch (error) {
+    console.error('Error listing sheet tabs:', error.message);
+    res.status(500).json({ error: 'Failed to list sheet tabs' });
   }
 });
 

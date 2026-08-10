@@ -55,6 +55,14 @@
       const [driveImages, setDriveImages] = useState([]);
       const [showDrivePicker, setShowDrivePicker] = useState(false);
       const [loadingDriveImages, setLoadingDriveImages] = useState(false);
+      const [showSettings, setShowSettings] = useState(false);
+      const [sheetTabs, setSheetTabs] = useState([]);
+      const [operatorsTab, setOperatorsTab] = useState('');
+      const [operatorsColumn, setOperatorsColumn] = useState('A');
+      const [operatorsStartRow, setOperatorsStartRow] = useState(2);
+      const [settingsStatus, setSettingsStatus] = useState('');
+      const [savingSettings, setSavingSettings] = useState(false);
+      const [testingOperators, setTestingOperators] = useState(false);
       const fileInput = useRef(null);
 
       useEffect(() => {
@@ -72,6 +80,81 @@
           .then(d => setRooms(d.rooms || []))
           .catch(err => setLoadError(err.message || 'Failed to load rooms list.'));
       }, []);
+
+      const openSettings = async () => {
+        setError('');
+        setSettingsStatus('');
+        setShowSettings(true);
+        try {
+          const [settingsResp, tabsResp] = await Promise.all([
+            fetch('/api/settings'),
+            fetch('/api/sheet-tabs')
+          ]);
+          if (settingsResp.status === 401 || tabsResp.status === 401) {
+            window.location.href = '/';
+            return;
+          }
+          if (settingsResp.ok) {
+            const data = await settingsResp.json();
+            setOperatorsTab(data.settings.operatorsTab || '');
+            setOperatorsColumn(data.settings.operatorsColumn || 'A');
+            setOperatorsStartRow(data.settings.operatorsStartRow || 2);
+          }
+          if (tabsResp.ok) {
+            const data = await tabsResp.json();
+            setSheetTabs(data.tabs || []);
+          }
+        } catch (err) {
+          setError(err.message || 'Failed to load settings.');
+        }
+      };
+
+      const saveOperatorSettings = async () => {
+        setSettingsStatus('');
+        setSavingSettings(true);
+        try {
+          const resp = await fetch('/api/settings', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ operatorsTab, operatorsColumn: operatorsColumn.toUpperCase(), operatorsStartRow })
+          });
+          if (resp.status === 401) {
+            window.location.href = '/';
+            return;
+          }
+          if (!resp.ok) {
+            const errData = await resp.json().catch(() => ({}));
+            setSettingsStatus(errData.error || `Save failed (status ${resp.status}).`);
+            return;
+          }
+          setSettingsStatus('Saved.');
+        } catch (err) {
+          setSettingsStatus(err.message || 'Save failed.');
+        } finally {
+          setSavingSettings(false);
+        }
+      };
+
+      const testOperators = async () => {
+        setSettingsStatus('');
+        setTestingOperators(true);
+        try {
+          const resp = await fetch('/api/operators');
+          if (!resp.ok) {
+            setSettingsStatus(`Test failed (status ${resp.status}).`);
+            return;
+          }
+          const data = await resp.json();
+          setSettingsStatus(
+            data.operators.length > 0
+              ? `Found ${data.operators.length} operator(s): ${data.operators.join(', ')}`
+              : 'No operators found — check the tab name and column.'
+          );
+        } catch (err) {
+          setSettingsStatus(err.message || 'Test failed.');
+        } finally {
+          setTestingOperators(false);
+        }
+      };
 
       const loadRoom = async (s) => {
         setError('');
@@ -220,11 +303,45 @@
         <div className="screen">
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <h1>RoomReset Admin</h1>
-            <a href="/" style={{ color: '#dd6633' }}>Home</a>
+            <div>
+              <button className="small" onClick={openSettings} style={{ width: 'auto', marginRight: 8 }}>Settings</button>
+              <a href="/" style={{ color: '#dd6633' }}>Home</a>
+            </div>
           </div>
           {loadError && <div className="error">{loadError}</div>}
           {error && <div className="error">{error}</div>}
           {status && <div className="status">{status}</div>}
+
+          {showSettings && (
+            <div className="drive-picker">
+              <p style={{ fontWeight: 'bold' }}>
+                Operator List Source
+                <button className="small" style={{ float: 'right' }} onClick={() => setShowSettings(false)}>Close</button>
+              </p>
+              <p style={{ fontSize: 13, opacity: 0.8 }}>
+                The operator dropdown reads names from a range on a tab in the shared
+                spreadsheet (the tab may have other data too — only this column is read).
+              </p>
+              <select value={operatorsTab} onChange={e => setOperatorsTab(e.target.value)}>
+                <option value="">-- Select Tab --</option>
+                {sheetTabs.map(t => <option key={t} value={t}>{t}</option>)}
+              </select>
+              <div style={{ display: 'flex', gap: 8 }}>
+                <input placeholder="Column (e.g. B)" value={operatorsColumn}
+                       onChange={e => setOperatorsColumn(e.target.value)} style={{ flex: 1 }} />
+                <input type="number" min="1" placeholder="Start row" value={operatorsStartRow}
+                       onChange={e => setOperatorsStartRow(e.target.value)} style={{ flex: 1 }} />
+              </div>
+              <button className="small" onClick={saveOperatorSettings} disabled={savingSettings}>
+                {savingSettings ? 'Saving…' : 'Save'}
+              </button>
+              <button className="small" onClick={testOperators} disabled={testingOperators}>
+                {testingOperators ? 'Testing…' : 'Test'}
+              </button>
+              {settingsStatus && <p style={{ fontSize: 13 }}>{settingsStatus}</p>}
+            </div>
+          )}
+
           <select onChange={e => loadRoom(e.target.value)}>
             <option value="">-- New Room --</option>
             {rooms.map(r => <option key={r.slug} value={r.slug}>{r.name}</option>)}
