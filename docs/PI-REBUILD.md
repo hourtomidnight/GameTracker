@@ -209,3 +209,32 @@ Verified end-to-end on the Pi: local upload → file written → servable via
 `/images/...` (200). Drive listing endpoint verified reachable (returns
 empty array until photos are actually placed in the Drive folder — that's
 expected, not tested with an image finally uploaded to it yet).
+
+## Operator list source — made configurable (2026-08-09)
+
+The hardcoded operator-column guess (`Dropdown!A2:A`) never matched the
+real spreadsheet — confirmed via `Unable to parse range: Dropdown!A2:A` in
+the logs. Replaced with an Admin-configurable setting:
+
+- `lib/settings.js` persists `{ operatorsTab, operatorsColumn,
+  operatorsStartRow }` to `data/settings.json` (gitignored, per-deployment,
+  defaults to the real values below so it works out of the box).
+- Admin UI gained a **Settings** panel: a tab dropdown (live-populated via
+  a new `GET /api/sheet-tabs`), column/start-row fields, Save, and a Test
+  button that shows the actual operator names found.
+- Real values for this spreadsheet: tab **"Drop Down options"**, column
+  **B**, starting row **1**. Verified live:
+  `{"operators":["Aimee","Andrew","Ed","Horatio","Lindsay","Kaz","Melissa","Miranda","Reagan","Seth","Ivy","Tom","Keilah","Ryan L","Jay"]}`
+- Cleaned up a leftover `reset-test-room` tab in the spreadsheet from
+  earlier image-upload testing.
+
+## Confirmed IP reassignment on the home network (2026-08-09)
+
+The Pi's DHCP-assigned IP changed from `.127` to `.129` overnight — expected
+since no reservation was set on the (temporary) home network. Confirms the
+`HTM-PI-Web.local` mDNS hostname is genuinely necessary, not just a
+convenience: it kept resolving throughout the IP change and was used to
+finish this session's deploys. Same expectation applies once at the
+business network unless a DHCP reservation is set there — either works
+(reservation for a stable IP references, or just rely on `.local` and the
+dynamic-hostname link fix already in `home.html`).
