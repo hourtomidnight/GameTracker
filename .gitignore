@@ -1,14 +1,17 @@
 # Secrets - never commit
-google-credentials.json
-data/password.txt
+**/google-credentials.json
+tracker/data/password.txt
 
 # Runtime data (persisted on the Pi, not source-controlled)
-data/*.json
-csv_files/*.csv
+tracker/data/*.json
+tracker/csv_files/*.csv
+roomreset/data/*.json
+roomreset/data/reset-images/
 
 # Node
 node_modules/
 npm-debug.log*
+package-lock.json
 
 # PM2
 .pm2/

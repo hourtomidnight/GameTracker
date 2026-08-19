@@ -1,44 +1,26 @@
-# HTM Escape Room Tracker
+# GameTracker
 
-Session tracker for Hour To Midnight escape rooms. Game masters log players,
-hints, timing, and outcome for each session; data syncs to Google Sheets.
+Monorepo for Hour To Midnight's (HTM) internal escape room tools, both
+deployed on the same Raspberry Pi:
 
-See `CLAUDE.md` for an architecture overview and `docs/` for setup guides:
+- [`tracker/`](tracker/README.md) — session tracker game masters use to run
+  a room end-to-end (Pre-Game → Game → Post-Game → submit to Google Sheets).
+- `roomreset/` — PWA that walks operators through resetting a room between
+  sessions, with progress written live to Google Sheets.
 
-- `docs/HTM-SETUP-INSTRUCTIONS.md` — general setup
-- `docs/GOOGLE-SHEETS-SETUP.md` — service account + sheet layout
-- `docs/UNIFIED-AUTH-SETUP.md` — session auth / nginx
-- `docs/THEME-INSTRUCTIONS.md` — HTM branding/colors
-- `docs/nginx-htm.conf` — reference nginx config
+Both are separate Node/Express services (different ports, different pm2
+processes) linked from the shared home page (`tracker/home.html`) — kept as
+independent origins deliberately, not merged into one server, so their
+`/api/*` routes don't collide. See `tracker/CLAUDE.md` for why.
 
-## Local development
+## Deployment
 
-For testing changes before pushing — the real app runs on the Pi, not here.
+The Pi has its own `git clone` of this whole repo at `~/GameTracker` and
+self-updates via the root [`update.sh`](update.sh) — `git pull` when behind,
+`npm install` in whichever app(s) changed, then restart both pm2 services.
+Trigger it with `npm run deploy` from either `tracker/` or `roomreset/`, or
+SSH in and run it directly.
 
-```bash
-npm install
-npm start
-# http://localhost:3000
-```
-
-You'll need a `google-credentials.json` service account key in the project
-root (not committed — see docs/GOOGLE-SHEETS-SETUP.md) and a
-`data/password.txt` with your login password.
-
-## Deploying to the Pi
-
-The app runs on the Pi itself, which has its own `git clone` of this repo
-and self-updates via `update.sh`. Push your commits, then:
-
-```bash
-npm run deploy
-```
-
-This SSHes into the Pi and runs `update.sh` there (`git pull` if behind,
-`npm install` if needed, `pm2 restart htm-server`). See `CLAUDE.md` for the
-one-time Pi setup steps and full deploy details.
-
-On-site, the app is reachable at `http://hourtomidnight/` (or
-`http://HTM-PI-Web.local/` as an mDNS fallback) — see `CLAUDE.md` for
-network history. It runs continuously on the Pi under pm2 — nothing needs
-to be launched, just open that URL.
+See `docs/PI-REBUILD.md` for the Pi's full setup history and
+`tracker/CLAUDE.md` for tracker-specific deploy details (network address,
+SSH user, etc. — shared by both apps since they're on the same Pi).

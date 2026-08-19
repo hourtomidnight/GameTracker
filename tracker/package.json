@@ -6,7 +6,7 @@
   "scripts": {
     "start": "node server.js",
     "dev": "node server.js",
-    "deploy": "node -c server.js && ssh elshoff@hourtomidnight 'bash ~/escape-room-tracker/update.sh'"
+    "deploy": "node -c server.js && ssh elshoff@hourtomidnight 'bash ~/GameTracker/update.sh'"
   },
   "dependencies": {
     "express": "^4.19.2",
