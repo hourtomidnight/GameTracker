@@ -67,6 +67,7 @@ app.get('/api/operators', isAuthenticated, async (req, res) => {
       return res.json({ operators: [] });
     }
     const operators = await getColumnValues(operatorsTab, operatorsColumn, operatorsStartRow);
+    operators.sort((a, b) => a.localeCompare(b));
     res.json({ operators });
   } catch (error) {
     console.error('Error fetching operators:', error.message);
