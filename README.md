@@ -13,6 +13,8 @@ See `CLAUDE.md` for an architecture overview and `docs/` for setup guides:
 
 ## Local development
 
+For testing changes before pushing — the real app runs on the Pi, not here.
+
 ```bash
 npm install
 npm start
@@ -25,23 +27,18 @@ root (not committed — see docs/GOOGLE-SHEETS-SETUP.md) and a
 
 ## Deploying to the Pi
 
+The app runs on the Pi itself, which has its own `git clone` of this repo
+and self-updates via `update.sh`. Push your commits, then:
+
 ```bash
 npm run deploy
 ```
 
-Or manually:
-
-```bash
-scp server.js index.html home.html login.html csv-downloads.html \
-    elshoff@hourtomidnight:/home/elshoff/escape-room-tracker/
-ssh elshoff@hourtomidnight 'pm2 restart htm-server'
-```
+This SSHes into the Pi and runs `update.sh` there (`git pull` if behind,
+`npm install` if needed, `pm2 restart htm-server`). See `CLAUDE.md` for the
+one-time Pi setup steps and full deploy details.
 
 On-site, the app is reachable at `http://hourtomidnight/` (or
 `http://HTM-PI-Web.local/` as an mDNS fallback) — see `CLAUDE.md` for
-network history.
-
-## Launching / updating
-
-Run `menu.bat` (Windows) to pull the latest from GitHub and start the
-server in one step.
+network history. It runs continuously on the Pi under pm2 — nothing needs
+to be launched, just open that URL.

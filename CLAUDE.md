@@ -60,16 +60,31 @@ sync to a Google Sheet (one tab per room) for record-keeping and reporting.
 
 ## Deployment
 
-```bash
-# from a dev machine, after testing locally with `npm start`
-scp server.js index.html home.html login.html csv-downloads.html \
-    elshoff@hourtomidnight:/home/elshoff/escape-room-tracker/
+The Pi runs its own `git clone` of this repo at `~/escape-room-tracker` and
+self-updates — nothing is scp'd file-by-file anymore.
 
-ssh elshoff@hourtomidnight 'pm2 restart htm-server && pm2 logs htm-server --lines 20'
+```bash
+# push your commits to GitHub first, then:
+npm run deploy
 ```
 
-Or `npm run deploy` from the repo root, which wraps the same steps plus a
-`node -c server.js` syntax check first.
+This SSHes in and runs `update.sh` on the Pi, which `git fetch`s, does a
+fast-forward-only `git pull` if the Pi is behind `origin/master`, runs
+`npm install` if anything pulled, then `pm2 restart htm-server`. It refuses
+to auto-merge (fails loudly instead) if the Pi's local copy has diverged —
+that needs a human to look at it.
+
+You can also SSH in and run `bash ~/escape-room-tracker/update.sh` directly,
+or set it up as a cron job on the Pi for auto-updates without a manual
+trigger.
+
+**One-time setup on a fresh Pi** (see `docs/PI-REBUILD.md` for the full
+rebuild process): `git clone` this repo to `~/escape-room-tracker`, `npm
+install`, add the gitignored `google-credentials.json` and
+`data/password.txt`, then `pm2 start server.js --name htm-server`.
+
+The Pi runs the app continuously under pm2 — there's nothing to launch;
+game masters just open the URL below in a browser.
 
 Pi is currently on the sail network, reachable at `http://hourtomidnight/`
 (also `http://HTM-PI-Web.local/` via mDNS as a fallback — both resolve

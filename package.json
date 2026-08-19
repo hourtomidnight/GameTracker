@@ -6,7 +6,7 @@
   "scripts": {
     "start": "node server.js",
     "dev": "node server.js",
-    "deploy": "node -c server.js && scp server.js index.html home.html login.html csv-downloads.html elshoff@hourtomidnight:/home/elshoff/escape-room-tracker/ && ssh elshoff@hourtomidnight \"pm2 restart htm-server && pm2 logs htm-server --lines 20\""
+    "deploy": "node -c server.js && ssh elshoff@hourtomidnight 'bash ~/escape-room-tracker/update.sh'"
   },
   "dependencies": {
     "express": "^4.19.2",
