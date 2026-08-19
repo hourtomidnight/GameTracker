@@ -324,7 +324,6 @@
       const GameConfig = () => {
         const [editingGame, setEditingGame] = useState(null);
         const [gameName, setGameName] = useState('');
-        const [csvName, setCsvName] = useState('');
         const [sheetTab, setSheetTab] = useState('');
         const [scheduleTab, setScheduleTab] = useState('');
         const [gamePrefix, setGamePrefix] = useState('');
@@ -390,9 +389,8 @@
 
         const startNewGame = () => {
           fetchSheetTabs(); // Refresh tabs
-          setEditingGame({ id: Date.now().toString(), name: '', csvName: '', sheetTab: '', scheduleTab: '', gamePrefix: '', puzzles: [] });
+          setEditingGame({ id: Date.now().toString(), name: '', sheetTab: '', scheduleTab: '', gamePrefix: '', puzzles: [] });
           setGameName('');
-          setCsvName('');
           setSheetTab('');
           setScheduleTab('');
           setGamePrefix('');
@@ -403,7 +401,6 @@
           fetchSheetTabs(); // Refresh tabs
           setEditingGame(game);
           setGameName(game.name);
-          setCsvName(game.csvName);
           setSheetTab(game.sheetTab || '');
           setScheduleTab(game.scheduleTab || '');
           setGamePrefix(game.gamePrefix || '');
@@ -411,12 +408,11 @@
         };
 
         const saveGame = () => {
-          if (!gameName.trim() || !csvName.trim()) return;
+          if (!gameName.trim()) return;
 
           const gameData = {
             id: editingGame.id,
             name: gameName,
-            csvName: csvName,
             sheetTab: sheetTab,
             scheduleTab: scheduleTab,
             gamePrefix: gamePrefix,
@@ -579,7 +575,7 @@
                 </h2>
 
                 <div className="bg-slate-700/80 backdrop-blur-lg rounded-2xl p-8 border border-orange-500/50 shadow-2xl mb-6">
-                  <div className="grid grid-cols-3 gap-4 mb-4">
+                  <div className="grid grid-cols-2 gap-4 mb-4">
                     <div>
                       <label className="block text-orange-200 mb-2 font-semibold" title="Shown to game masters when picking a room to run in Pre-Game.">Game Name</label>
                       <input
@@ -587,17 +583,6 @@
                         value={gameName}
                         onChange={(e) => setGameName(e.target.value)}
                         title="Display name for this room, e.g. 'The Dragon's Gambit'."
-                        className="w-full bg-slate-600/90 text-white p-4 rounded-xl border border-orange-400/60 focus:border-orange-400 focus:outline-none"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-orange-200 mb-2 font-semibold" title="Local filename used when this room's sessions are exported to CSV.">CSV Filename</label>
-                      <input
-                        type="text"
-                        value={csvName}
-                        onChange={(e) => setCsvName(e.target.value)}
-                        placeholder="e.g., sessions.csv"
-                        title="Filename for this room's local CSV export (data/ folder on the Pi)."
                         className="w-full bg-slate-600/90 text-white p-4 rounded-xl border border-orange-400/60 focus:border-orange-400 focus:outline-none"
                       />
                     </div>
@@ -1005,7 +990,6 @@
                     <div className="flex items-center justify-between">
                       <div>
                         <h3 className="text-2xl font-bold text-white mb-1">{game.name}</h3>
-                        <p className="text-orange-200 text-sm">CSV: {game.csvName}</p>
                         <p className="text-orange-300 text-sm">{game.puzzles.length} puzzles</p>
                       </div>
                       <div className="flex gap-2">
@@ -1565,121 +1549,54 @@
         };
 
         const handleSubmit = async () => {
-          const headers = [
-            'Game Name',
-            'Date/Time',
-            'Game Master',
-            'Experienced',
-            'New Players',
-            'Group Size',
-            'Total Hints',
-            'Other Hints',
-            'Notes',
-            'How Did You Hear',
-            ...gameSession.puzzles.flatMap(p => {
-              const cols = [
-                `${p.name} - Hints`,
-                `${p.name} - Solved`,
-                `${p.name} - Duration`
-              ];
-              // Add column for each enabled object
-              (p.objects || []).filter(obj => obj.enabled).forEach(obj => {
-                cols.push(`${p.name} - ${obj.name} Found Time`);
-              });
-              return cols;
-            })
-          ];
-
-          const data = [
-            gameSession.gameName,
-            gameSession.dateTime,
-            gameSession.gameMaster,
-            gameSession.experienced,
-            gameSession.newPlayers,
-            gameSession.experienced + gameSession.newPlayers,
-            getTotalHints(),
-            gameSession.otherHints,
-            `"${(gameSession.notes || '').replace(/"/g, '""')}"`, // Escape quotes in notes
-            gameSession.howDidYouHear || '',
-            ...gameSession.puzzles.flatMap(p => {
-              const vals = [
-                p.hintCount,
-                p.solved ? 'Yes' : 'No',
-                p.duration
-              ];
-              // Add timestamp for each enabled object (if found)
-              (p.objects || []).filter(obj => obj.enabled).forEach(obj => {
-                const found = p.foundObjects.find(f => f.objectId === obj.id);
-                vals.push(found ? new Date(found.timestamp).toLocaleTimeString('en-US', { hour12: false }) : 'Not Found');
-              });
-              return vals;
-            })
-          ];
-
-          const csvContent = headers.join(',') + '\n' + data.join(',');
-          
-          // Save to server only
           try {
-            const response = await fetch('/api/csv/save', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                filename: selectedGame.csvName,
-                data: csvContent
-              })
-            });
-            
-            if (response.ok) {
-              // Sync final data to Google Sheets
-              if (gameSession.sheetRowIndex && startTime) {
-                const elapsed = formatTime(Math.floor((Date.now() - startTime) / 1000));
-                await syncToSheets('complete', {
-                  rowIndex: gameSession.sheetRowIndex,
-                  sheetTab: selectedGame.sheetTab,
-                  gameMaster: gameSession.gameMaster,
-                  date: new Date(gameSession.dateTime).toLocaleDateString('en-US'),
-                  startTime: new Date(startTime).toLocaleTimeString('en-US', { hour12: false }),
-                  totalHints: getTotalHints(),
-                  elapsedTime: elapsed,
-                  newPlayers: gameSession.newPlayers,
-                  experienced: gameSession.experienced,
-                  notes: gameSession.notes,
-                  howDidYouHear: gameSession.howDidYouHear
-                });
-              }
-              
-              // Reset form (keep selectedGame reference)
-              setStartTime(null);
-              setGameSession({
-                gameMaster: '',
-                dateTime: new Date().toISOString().slice(0, 16),
-                experienced: 0,
-                newPlayers: 0,
-                totalHints: 0,
-                otherHints: 0,
-                notes: '',
-                howDidYouHear: '',
-                isOtherSelected: false,
-                puzzles: (selectedGame?.puzzles || []).map(p => ({
-                  id: p.id,
-                  name: p.name,
-                  hintCount: 0,
-                  solved: false,
-                  duration: p.duration,
-                  foundObjects: []
-                })),
-                sessionId: null,
-                sheetRowIndex: null,
-                startTime: null
+            // Sync final data to Google Sheets
+            if (gameSession.sheetRowIndex && startTime) {
+              const elapsed = formatTime(Math.floor((Date.now() - startTime) / 1000));
+              await syncToSheets('complete', {
+                rowIndex: gameSession.sheetRowIndex,
+                sheetTab: selectedGame.sheetTab,
+                gameMaster: gameSession.gameMaster,
+                date: new Date(gameSession.dateTime).toLocaleDateString('en-US'),
+                startTime: new Date(startTime).toLocaleTimeString('en-US', { hour12: false }),
+                totalHints: getTotalHints(),
+                elapsedTime: elapsed,
+                newPlayers: gameSession.newPlayers,
+                experienced: gameSession.experienced,
+                notes: gameSession.notes,
+                howDidYouHear: gameSession.howDidYouHear
               });
-              
-              alert('Session saved successfully! View in CSV Downloads.');
-            } else {
-              alert('Failed to save session to server.');
             }
+
+            // Reset form (keep selectedGame reference)
+            setStartTime(null);
+            setGameSession({
+              gameMaster: '',
+              dateTime: new Date().toISOString().slice(0, 16),
+              experienced: 0,
+              newPlayers: 0,
+              totalHints: 0,
+              otherHints: 0,
+              notes: '',
+              howDidYouHear: '',
+              isOtherSelected: false,
+              puzzles: (selectedGame?.puzzles || []).map(p => ({
+                id: p.id,
+                name: p.name,
+                hintCount: 0,
+                solved: false,
+                duration: p.duration,
+                foundObjects: []
+              })),
+              sessionId: null,
+              sheetRowIndex: null,
+              startTime: null
+            });
+
+            alert('Session saved successfully!');
           } catch (error) {
-            console.error('Error saving to server:', error);
-            alert('Error saving session to server.');
+            console.error('Error saving session:', error);
+            alert('Error saving session to Google Sheets.');
           }
         };
 

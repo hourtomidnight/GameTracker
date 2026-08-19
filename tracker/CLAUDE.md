@@ -3,7 +3,9 @@
 Internal tool for Hour To Midnight (HTM), a Portland, OR escape room venue. Game
 masters use it on a tablet/browser to run a session end-to-end: pre-game setup,
 live timer + hint tracking, win/lose, then review and submit. Submitted sessions
-sync to a Google Sheet (one tab per room) for record-keeping and reporting.
+sync to a Google Sheet (one tab per room) for record-keeping and reporting —
+Google Sheets is the sole persistence for session data; there's no local CSV
+export (removed 2026-08-19).
 
 ## Stack
 
@@ -13,7 +15,7 @@ sync to a Google Sheet (one tab per room) for record-keeping and reporting.
   in-browser Babel, no build step). All app logic lives in one big inline
   `<script type="text/babel">` block.
 - **Other pages**: `home.html` (landing page with links to Session Tracker,
-  Node-RED, CSV downloads), `login.html`, `csv-downloads.html`.
+  Node-RED), `login.html`.
 - **Storage**: flat JSON files in `data/` (`storage.json` for game configs,
   `password.txt` for auth) — no database.
 - **Google Sheets**: `googleapis` client, service account

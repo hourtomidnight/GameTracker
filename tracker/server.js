@@ -24,18 +24,11 @@ app.use(session({
 
 app.use(express.json());
 
-// Create data directories if they don't exist
-const csvDir = path.join(__dirname, 'csv_files');
+// Create data directory if it doesn't exist
 const dataDir = path.join(__dirname, 'data');
-if (!fs.existsSync(csvDir)) {
-  fs.mkdirSync(csvDir);
-}
 if (!fs.existsSync(dataDir)) {
   fs.mkdirSync(dataDir);
 }
-
-// Serve CSV files directory
-app.use('/csv', express.static(csvDir));
 
 // File paths for persistent storage
 const storageFile = path.join(dataDir, 'storage.json');
@@ -534,54 +527,6 @@ app.post('/api/sheets/complete-session', isAuthenticated, async (req, res) => {
   res.json({ success: true });
 });
 
-// CSV API endpoints (password-protected)
-app.get('/api/csv/list', isAuthenticated, (req, res) => {
-  fs.readdir(csvDir, (err, files) => {
-    if (err) {
-      return res.status(500).json({ error: 'Failed to read CSV directory' });
-    }
-    const csvFiles = files.filter(file => file.endsWith('.csv'));
-    res.json({ files: csvFiles });
-  });
-});
-
-app.post('/api/csv/save', isAuthenticated, (req, res) => {
-  const { filename, data } = req.body;
-  
-  if (!filename || !data) {
-    return res.status(400).json({ error: 'Missing filename or data' });
-  }
-
-  const filePath = path.join(csvDir, filename);
-  const fileExists = fs.existsSync(filePath);
-  
-  if (fileExists) {
-    const lines = data.split('\n');
-    const dataOnly = lines.slice(1).join('\n');
-    fs.appendFileSync(filePath, '\n' + dataOnly);
-  } else {
-    fs.writeFileSync(filePath, data);
-  }
-  
-  res.json({ success: true, path: `/csv/${filename}` });
-});
-
-app.delete('/api/csv/delete/:filename', isAuthenticated, (req, res) => {
-  const filename = req.params.filename;
-  const filePath = path.join(csvDir, filename);
-  
-  if (!fs.existsSync(filePath)) {
-    return res.status(404).json({ error: 'File not found' });
-  }
-  
-  try {
-    fs.unlinkSync(filePath);
-    res.json({ success: true, message: 'File deleted' });
-  } catch (error) {
-    res.status(500).json({ error: 'Failed to delete file' });
-  }
-});
-
 // Serve login page
 app.get('/login', (req, res) => {
   res.sendFile(path.join(__dirname, 'login.html'));
@@ -605,15 +550,6 @@ app.get('/escape-room', (req, res) => {
   }
 });
 
-// Serve CSV downloads page (redirect to login if not authenticated)
-app.get('/csv-downloads', (req, res) => {
-  if (req.session && req.session.authenticated) {
-    res.sendFile(path.join(__dirname, 'csv-downloads.html'));
-  } else {
-    res.redirect('/login');
-  }
-});
-
 // Serve static files AFTER routes so routes take priority
 app.use(express.static('.'));
 
@@ -622,7 +558,5 @@ initGoogleSheets();
 
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`HTM Server running on http://0.0.0.0:${PORT}`);
-  console.log(`CSV files accessible at http://0.0.0.0:${PORT}/csv/`);
-  console.log(`CSV files stored in: ${csvDir}`);
   console.log(`Data files stored in: ${dataDir}`);
 });

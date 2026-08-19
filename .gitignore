@@ -4,7 +4,6 @@ tracker/data/password.txt
 
 # Runtime data (persisted on the Pi, not source-controlled)
 tracker/data/*.json
-tracker/csv_files/*.csv
 # roomreset/ has its own .gitignore for its runtime data
 
 # Node
