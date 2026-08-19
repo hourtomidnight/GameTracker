@@ -4,7 +4,8 @@
   "description": "Standalone PWA that walks Hour To Midnight escape room operators through the\r room reset process, with progress written live to Google Sheets.",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "deploy": "node -c server.js && ssh elshoff@hourtomidnight 'bash ~/GameTracker/update.sh'"
   },
   "keywords": [],
   "author": "",
