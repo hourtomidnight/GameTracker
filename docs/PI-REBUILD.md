@@ -238,3 +238,23 @@ finish this session's deploys. Same expectation applies once at the
 business network unless a DHCP reservation is set there — either works
 (reservation for a stable IP references, or just rely on `.local` and the
 dynamic-hostname link fix already in `home.html`).
+
+## Relocated to business network (2026-08-09)
+
+The Pi has been physically moved to the business location — confirmed via
+Tailscale (`htm-pi-web`, 100.109.138.91) showing its LAN IP as
+`192.168.1.151`, matching the business network address documented in the
+original `CLAUDE.md` before the rebuild. Reached and deployed to over
+Tailscale during the move itself (SSH/mDNS to the old home-network address
+briefly stopped resolving mid-transition, as expected).
+
+- Operators list now sorts alphabetically (`server.js` `/api/operators`).
+- All prior fixes (dynamic RoomReset link via `window.location.hostname`,
+  `HTM-PI-Web.local` mDNS) continue to apply regardless of which network
+  the Pi is on — no further link/IP updates needed.
+- **Still to confirm**: whether a DHCP reservation for `192.168.1.151` is
+  set on the business router (recommended, even though the app itself no
+  longer strictly depends on a fixed IP thanks to the hostname-based
+  fixes) — check with whoever manages that network.
+- Tailscale itself is a solid fallback path for remote access/deploys
+  going forward, independent of whichever LAN the Pi is physically on.
