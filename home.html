@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Hour to Midnight Home</title>
+  <title>HTM Intranet</title>
   <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
   <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
@@ -224,6 +224,20 @@
         saveLinks(updated);
       };
 
+      // Reordering is scoped to user-added links — core (built-in) links
+      // always render first in a fixed order, so only the user-added
+      // portion of `links` has a persisted order to move within.
+      const moveLink = (id, direction) => {
+        const coreLinks = links.filter(l => l.core);
+        const userLinks = links.filter(l => !l.core);
+        const idx = userLinks.findIndex(l => l.id === id);
+        const targetIdx = idx + direction;
+        if (idx === -1 || targetIdx < 0 || targetIdx >= userLinks.length) return;
+        const reordered = [...userLinks];
+        [reordered[idx], reordered[targetIdx]] = [reordered[targetIdx], reordered[idx]];
+        saveLinks([...coreLinks, ...reordered]);
+      };
+
       const updatePassword = async (newPassword) => {
         if (!newPassword.trim()) return;
         await window.storage.set('authPassword', newPassword);
@@ -372,29 +386,53 @@
                 </div>
 
                 <div className="space-y-3">
-                  {links.map(link => (
-                    <div
-                      key={link.id}
-                      className="bg-slate-700/30 p-4 rounded-xl border border-orange-500/20 flex items-center justify-between"
-                    >
-                      <div>
-                        <div className="text-white font-semibold">{link.icon && <span className="mr-2">{link.icon}</span>}{link.name}</div>
-                        <div className="text-orange-300 text-sm">{link.url}</div>
-                        {link.description && <div className="text-orange-200 text-xs mt-1 italic">{link.description}</div>}
-                        <div className="text-orange-400 text-xs mt-1">
-                          {link.core ? 'Built-in Link' : (link.internal ? 'Internal Link' : 'External Link')}
-                        </div>
-                      </div>
-                      {!link.core && (
-                        <button
-                          onClick={() => deleteLink(link.id)}
-                          className="px-4 py-2 bg-red-600/20 text-red-400 rounded-lg hover:bg-red-600/30 transition-all"
+                  {(() => {
+                    const userLinks = links.filter(l => !l.core);
+                    return links.map(link => {
+                      const userIdx = userLinks.findIndex(l => l.id === link.id);
+                      return (
+                        <div
+                          key={link.id}
+                          className="bg-slate-700/30 p-4 rounded-xl border border-orange-500/20 flex items-center justify-between"
                         >
-                          <Trash2 size={18} />
-                        </button>
-                      )}
-                    </div>
-                  ))}
+                          <div>
+                            <div className="text-white font-semibold">{link.icon && <span className="mr-2">{link.icon}</span>}{link.name}</div>
+                            <div className="text-orange-300 text-sm">{link.url}</div>
+                            {link.description && <div className="text-orange-200 text-xs mt-1 italic">{link.description}</div>}
+                            <div className="text-orange-400 text-xs mt-1">
+                              {link.core ? 'Built-in Link' : (link.internal ? 'Internal Link' : 'External Link')}
+                            </div>
+                          </div>
+                          {!link.core && (
+                            <div className="flex items-center gap-2">
+                              <button
+                                onClick={() => moveLink(link.id, -1)}
+                                disabled={userIdx === 0}
+                                className="px-3 py-2 bg-slate-600/50 text-white rounded-lg hover:bg-slate-600 transition-all disabled:opacity-30 disabled:cursor-not-allowed"
+                                title="Move up"
+                              >
+                                ↑
+                              </button>
+                              <button
+                                onClick={() => moveLink(link.id, 1)}
+                                disabled={userIdx === userLinks.length - 1}
+                                className="px-3 py-2 bg-slate-600/50 text-white rounded-lg hover:bg-slate-600 transition-all disabled:opacity-30 disabled:cursor-not-allowed"
+                                title="Move down"
+                              >
+                                ↓
+                              </button>
+                              <button
+                                onClick={() => deleteLink(link.id)}
+                                className="px-4 py-2 bg-red-600/20 text-red-400 rounded-lg hover:bg-red-600/30 transition-all"
+                              >
+                                <Trash2 size={18} />
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    });
+                  })()}
                 </div>
               </div>
             </div>
@@ -410,7 +448,7 @@
               <div className="flex flex-col">
                 <img src="https://www.hourtomidnight.com/wp-content/uploads/2025/02/57bdd921036be9b815b12c40_Logo-Horiz-White-Text.webp" alt="Hour to Midnight" className="h-16 mb-4" onError={(e) => e.target.style.display='none'} />
                 <h1 className="text-4xl font-bold text-orange-400">
-                  Home
+                  HTM Intranet
                 </h1>
               </div>
               <div className="flex gap-4">
