@@ -26,7 +26,22 @@ root (not committed — see docs/GOOGLE-SHEETS-SETUP.md) and a
 ## Deploying to the Pi
 
 ```bash
-scp server.js index.html home.html login.html csv-downloads.html \
-    mytho@192.168.0.124:/home/mytho/escape-room-tracker/
-ssh mytho@192.168.0.124 'pm2 restart htm-server'
+npm run deploy
 ```
+
+Or manually:
+
+```bash
+scp server.js index.html home.html login.html csv-downloads.html \
+    elshoff@hourtomidnight:/home/elshoff/escape-room-tracker/
+ssh elshoff@hourtomidnight 'pm2 restart htm-server'
+```
+
+On-site, the app is reachable at `http://hourtomidnight/` (or
+`http://HTM-PI-Web.local/` as an mDNS fallback) — see `CLAUDE.md` for
+network history.
+
+## Launching / updating
+
+Run `menu.bat` (Windows) to pull the latest from GitHub and start the
+server in one step.

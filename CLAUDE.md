@@ -63,12 +63,21 @@ sync to a Google Sheet (one tab per room) for record-keeping and reporting.
 ```bash
 # from a dev machine, after testing locally with `npm start`
 scp server.js index.html home.html login.html csv-downloads.html \
-    mytho@192.168.0.124:/home/mytho/escape-room-tracker/
+    elshoff@hourtomidnight:/home/elshoff/escape-room-tracker/
 
-ssh mytho@192.168.0.124 'pm2 restart htm-server && pm2 logs htm-server --lines 20'
+ssh elshoff@hourtomidnight 'pm2 restart htm-server && pm2 logs htm-server --lines 20'
 ```
 
-Networks: Business `192.168.1.151`, Home `192.168.0.124`.
+Or `npm run deploy` from the repo root, which wraps the same steps plus a
+`node -c server.js` syntax check first.
+
+Pi is currently on the sail network, reachable at `http://hourtomidnight/`
+(also `http://HTM-PI-Web.local/` via mDNS as a fallback — both resolve
+regardless of which network the Pi is physically on, so this shouldn't need
+updating again on future moves). SSH user is `elshoff`, not `mytho` — see
+`docs/PI-REBUILD.md` for the full history of prior network moves
+(home → business → sail) and why the hostname-based links/deploy target
+were adopted instead of hardcoded IPs.
 
 `google-credentials.json` (service account key) is required at the repo root
 on the Pi but is **not** committed — see `docs/GOOGLE-SHEETS-SETUP.md` for how

@@ -94,9 +94,45 @@
       </svg>
     );
 
+    const HelpCircle = ({ size = 24, className = "" }) => (
+      <svg className={className} width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <circle cx="12" cy="12" r="10"></circle>
+        <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"></path>
+        <line x1="12" y1="17" x2="12.01" y2="17"></line>
+      </svg>
+    );
+
+    const ChevronDown = ({ size = 24, className = "" }) => (
+      <svg className={className} width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <polyline points="6 9 12 15 18 9"></polyline>
+      </svg>
+    );
+
+    // Collapsible help topic used on the Help screen
+    const HelpTopic = ({ title, children, defaultOpen = false }) => {
+      const [open, setOpen] = useState(defaultOpen);
+      return (
+        <div className="border border-orange-500/20 rounded-xl overflow-hidden mb-3">
+          <button
+            onClick={() => setOpen(!open)}
+            className="w-full flex items-center justify-between p-4 bg-slate-700/40 hover:bg-slate-700/60 transition-all text-left"
+          >
+            <span className="text-white font-semibold">{title}</span>
+            <ChevronDown size={18} className={`text-orange-400 transition-transform ${open ? 'rotate-180' : ''}`} />
+          </button>
+          {open && (
+            <div className="p-4 bg-slate-800/40 text-orange-100 text-sm space-y-2">
+              {children}
+            </div>
+          )}
+        </div>
+      );
+    };
+
     const HomeApp = () => {
       const [isChecking, setIsChecking] = useState(true);
       const [showSettings, setShowSettings] = useState(false);
+      const [showHelp, setShowHelp] = useState(false);
       const [links, setLinks] = useState([]);
       const [newLinkName, setNewLinkName] = useState('');
       const [newLinkUrl, setNewLinkUrl] = useState('');
@@ -248,6 +284,83 @@
         return (
           <div className="min-h-screen bg-gradient-to-br from-gray-950 via-gray-900 to-gray-950 flex items-center justify-center">
             <div className="text-orange-400 text-2xl">Loading...</div>
+          </div>
+        );
+      }
+
+      // Help Screen
+      if (showHelp) {
+        return (
+          <div className="min-h-screen bg-gradient-to-br from-gray-950 via-gray-900 to-gray-950 p-8">
+            <div className="max-w-4xl mx-auto">
+              <div className="flex items-center justify-between mb-8">
+                <h1 className="text-4xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-orange-400 to-amber-400">
+                  Help &amp; Instructions
+                </h1>
+                <button
+                  onClick={() => setShowHelp(false)}
+                  className="bg-slate-700 text-white px-6 py-3 rounded-xl font-bold hover:bg-slate-600 transition-all"
+                >
+                  Back to Home
+                </button>
+              </div>
+
+              <div className="bg-slate-800/50 backdrop-blur-lg rounded-2xl p-8 border border-orange-500/20 shadow-2xl mb-6">
+                <h2 className="text-2xl font-bold text-white mb-4">Using the tracker (Game Masters)</h2>
+
+                <HelpTopic title="Running a session" defaultOpen={true}>
+                  <p><strong>1. Pre-Game</strong> — open Session Tracker, pick the room, and fill in player count, how the group heard about HTM, a scheduled time (if the room has a Schedule Tab configured), and any notes.</p>
+                  <p><strong>2. Game</strong> — press Start to begin the timer. Log hints as you give them and keep notes editable throughout. Press Win or Lose when the session ends.</p>
+                  <p><strong>3. Submit</strong> — review the summary and submit. This both saves locally and writes/updates a row in the room's Google Sheet tab.</p>
+                </HelpTopic>
+
+                <HelpTopic title="Logging in / changing your password">
+                  <p>The tracker uses a single shared password for all game masters (24-hour login). To change it, go to <strong>Settings → Change Password</strong> on this page.</p>
+                </HelpTopic>
+
+                <HelpTopic title="If a room's dropdowns are empty (Sheet Tab, scheduled times, How Did You Hear)">
+                  <p>These are pulled live from the shared Google Sheet. If a dropdown is empty:</p>
+                  <p>• Click "Refresh Tabs" in Game Config to re-fetch the tab list.</p>
+                  <p>• Confirm the Google Sheets connection is working — see <code>docs/GOOGLE-SHEETS-SETUP.md</code> in the repo.</p>
+                  <p>• Check that the tab/column names configured for that room match the sheet exactly (case-sensitive).</p>
+                </HelpTopic>
+              </div>
+
+              <div className="bg-slate-800/50 backdrop-blur-lg rounded-2xl p-8 border border-orange-500/20 shadow-2xl mb-6">
+                <h2 className="text-2xl font-bold text-white mb-4">Configuring rooms &amp; settings</h2>
+
+                <HelpTopic title="Adding or editing a room (Session Tracker → Game Config)">
+                  <p><strong>Game Name</strong> — display name shown in Pre-Game's room picker.</p>
+                  <p><strong>CSV Filename</strong> — local export filename for this room's sessions.</p>
+                  <p><strong>Google Sheet Tab</strong> — the tab this room's sessions get written to (usually <code>pi-&lt;abbrev&gt;</code>).</p>
+                  <p><strong>Schedule Tab Name</strong> — tab listing this room's scheduled time slots. Leave blank to hide the scheduled-time dropdown for this room.</p>
+                  <p><strong>Game Prefix</strong> — abbreviation that must exactly match column A of the Schedule tab, used to filter that tab down to this room's rows.</p>
+                  <p>Every field has a hover tooltip in the app itself with the same detail.</p>
+                </HelpTopic>
+
+                <HelpTopic title="'How Did You Hear' dropdown source">
+                  <p>Configured once in Game Config, shared across all rooms: Tab Name, Column, and Start Row identify where the option list lives in the Google Sheet.</p>
+                </HelpTopic>
+
+                <HelpTopic title="Home page links (this page)">
+                  <p>Session Tracker, Node-RED, the Escape Tracking Sheet, and RoomReset are built-in and can't be removed. Add your own links (internal paths like <code>/something</code>, or full external URLs) under <strong>Settings → Manage Links</strong> — use the ↑/↓ buttons to reorder them.</p>
+                </HelpTopic>
+
+                <HelpTopic title="Display theme">
+                  <p><strong>Settings → Theme Customization</strong> lets you pick a contrast preset for tablet visibility. Reload the tracker after changing it.</p>
+                </HelpTopic>
+              </div>
+
+              <div className="bg-slate-800/50 backdrop-blur-lg rounded-2xl p-8 border border-orange-500/20 shadow-2xl">
+                <h2 className="text-2xl font-bold text-white mb-4">Network &amp; access</h2>
+                <p className="text-orange-100 text-sm">
+                  On-site, reach this intranet at <strong>http://hourtomidnight/</strong>. If that doesn't resolve,
+                  try <strong>http://HTM-PI-Web.local/</strong> (mDNS hostname — works on any network the Pi is
+                  plugged into). Both point to the same Raspberry Pi; nothing in the app depends on a fixed IP
+                  address, so it keeps working if the Pi moves networks.
+                </p>
+              </div>
+            </div>
           </div>
         );
       }
@@ -452,6 +565,13 @@
                 </h1>
               </div>
               <div className="flex gap-4">
+                <button
+                  onClick={() => setShowHelp(true)}
+                  className="bg-slate-800/50 backdrop-blur-lg p-4 rounded-xl border border-orange-500/20 hover:border-orange-400/50 transition-all shadow-xl text-white flex items-center gap-2"
+                >
+                  <HelpCircle size={24} />
+                  <span className="font-bold">Help</span>
+                </button>
                 <button
                   onClick={() => setShowSettings(true)}
                   className="bg-slate-800/50 backdrop-blur-lg p-4 rounded-xl border border-orange-500/20 hover:border-orange-400/50 transition-all shadow-xl text-white flex items-center gap-2"
