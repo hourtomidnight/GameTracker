@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no" />
+  <title>RoomReset</title>
+  <link rel="manifest" href="/manifest.json" />
+  <meta name="theme-color" content="#dd6633" />
+  <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <style>
+    body { font-family: sans-serif; margin: 0; background: #111; color: #eee; }
+    .screen { padding: 24px; max-width: 480px; margin: 0 auto; }
+    select, input, button { width: 100%; padding: 12px; margin: 8px 0; font-size: 18px; box-sizing: border-box; }
+    button { background: #d63; color: white; border: none; border-radius: 6px; }
+    button:disabled { background: #555; }
+    .helper-list label { display: flex; align-items: center; gap: 10px; padding: 6px 0; }
+    .helper-list input[type="checkbox"] { width: auto; flex: none; margin: 0; }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+  <script type="text/babel">
+    const { useState, useEffect } = React;
+
+    function LoginScreen({ onLoggedIn }) {
+      const [password, setPassword] = useState('');
+      const [error, setError] = useState('');
+      const submit = async () => {
+        const resp = await fetch('/api/login', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ password })
+        });
+        if (resp.ok) onLoggedIn(); else setError('Invalid password');
+      };
+      return (
+        <div className="screen">
+          <h1>RoomReset</h1>
+          <input type="password" placeholder="Password" value={password}
+                 onChange={e => setPassword(e.target.value)} />
+          <button onClick={submit}>Log In</button>
+          {error && <p style={{ color: 'salmon' }}>{error}</p>}
+        </div>
+      );
+    }
+
+    function HomeScreen() {
+      const [rooms, setRooms] = useState([]);
+      const [operators, setOperators] = useState([]);
+      const [roomSlug, setRoomSlug] = useState('');
+      const [operator, setOperator] = useState('');
+      const [helpers, setHelpers] = useState([]);
+      const [mode, setMode] = useState('walkthrough');
+      const [loadError, setLoadError] = useState('');
+
+      useEffect(() => {
+        fetch('/api/rooms')
+          .then(r => r.json())
+          .then(d => setRooms(d.rooms || []))
+          .catch(() => setLoadError('Failed to load rooms. Please refresh the page.'));
+        fetch('/api/operators')
+          .then(r => r.json())
+          .then(d => setOperators(d.operators || []))
+          .catch(() => setLoadError('Failed to load operators. Please refresh the page.'));
+      }, []);
+
+      const toggleHelper = (name) => {
+        setHelpers(h => h.includes(name) ? h.filter(x => x !== name) : [...h, name]);
+      };
+
+      const start = async (force = false) => {
+        let resp, data;
+        try {
+          resp = await fetch(`/api/rooms/${roomSlug}/sessions/start`, {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ operator, helpers, force })
+          });
+          data = await resp.json();
+        } catch (err) {
+          alert('Failed to start session: network error. Please try again.');
+          return;
+        }
+        if (!resp.ok || !data.rowIndex) {
+          alert(`Failed to start session: ${data.error || 'Unknown error'}`);
+          return;
+        }
+        if (data.resumable) {
+          const proceed = confirm(
+            `Resume session by ${data.operator} started at ${data.startTime}? ` +
+            `(${data.completedSteps.length} steps done)`
+          );
+          if (!proceed) {
+            // Operator declined resuming - start a brand-new session row instead.
+            return start(true);
+          }
+        }
+        sessionStorage.setItem('roomreset_completed', JSON.stringify(data.completedSteps || []));
+        const url = `${mode}.html?room=${roomSlug}&row=${data.rowIndex}`;
+        window.location.href = url;
+      };
+
+      return (
+        <div className="screen">
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <h1>RoomReset</h1>
+            <a href="/admin" style={{ color: '#dd6633' }}>Admin</a>
+          </div>
+          {loadError && <p style={{ color: 'salmon' }}>{loadError}</p>}
+          <select value={roomSlug} onChange={e => setRoomSlug(e.target.value)}>
+            <option value="">Select Room</option>
+            {rooms.map(r => <option key={r.slug} value={r.slug}>{r.name}</option>)}
+          </select>
+          <select value={operator} onChange={e => setOperator(e.target.value)}>
+            <option value="">Select Operator</option>
+            {operators.map(o => <option key={o} value={o}>{o}</option>)}
+          </select>
+          <div className="helper-list">
+            <p>Helper(s):</p>
+            {operators.map(o => (
+              <label key={o}>
+                <input type="checkbox" checked={helpers.includes(o)} onChange={() => toggleHelper(o)} /> {o}
+              </label>
+            ))}
+          </div>
+          <select value={mode} onChange={e => setMode(e.target.value)}>
+            <option value="walkthrough">Walkthrough</option>
+            <option value="quicklist">Quick List</option>
+          </select>
+          <button disabled={!roomSlug || !operator} onClick={() => start(false)}>Start</button>
+        </div>
+      );
+    }
+
+    function App() {
+      const [loggedIn, setLoggedIn] = useState(false);
+      const [checking, setChecking] = useState(true);
+
+      useEffect(() => {
+        fetch('/api/session')
+          .then(r => r.json())
+          .then(d => { if (d.authenticated) setLoggedIn(true); })
+          .catch(() => {})
+          .finally(() => setChecking(false));
+      }, []);
+
+      if (checking) return <div className="screen"><h1>RoomReset</h1></div>;
+      return loggedIn ? <HomeScreen /> : <LoginScreen onLoggedIn={() => setLoggedIn(true)} />;
+    }
+
+    ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+  </script>
+  <script>
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('/sw.js');
+    }
+  </script>
+</body>
+</html>
