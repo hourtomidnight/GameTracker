@@ -63,7 +63,20 @@
       const [settingsStatus, setSettingsStatus] = useState('');
       const [savingSettings, setSavingSettings] = useState(false);
       const [testingOperators, setTestingOperators] = useState(false);
+      const [driveStatus, setDriveStatus] = useState(null);
+      const [editingStepId, setEditingStepId] = useState(null);
       const fileInput = useRef(null);
+
+      useEffect(() => {
+        const params = new URLSearchParams(window.location.search);
+        const driveParam = params.get('drive');
+        if (driveParam) {
+          setShowSettings(true);
+          if (driveParam === 'connected') setSettingsStatus('Google Drive connected.');
+          if (driveParam === 'error') setSettingsStatus('Google Drive connection failed - check server logs.');
+          window.history.replaceState({}, '', window.location.pathname);
+        }
+      }, []);
 
       useEffect(() => {
         fetch('/api/rooms')
@@ -83,14 +96,14 @@
 
       const openSettings = async () => {
         setError('');
-        setSettingsStatus('');
         setShowSettings(true);
         try {
-          const [settingsResp, tabsResp] = await Promise.all([
+          const [settingsResp, tabsResp, driveResp] = await Promise.all([
             fetch('/api/settings'),
-            fetch('/api/sheet-tabs')
+            fetch('/api/sheet-tabs'),
+            fetch('/api/auth/google/status')
           ]);
-          if (settingsResp.status === 401 || tabsResp.status === 401) {
+          if (settingsResp.status === 401 || tabsResp.status === 401 || driveResp.status === 401) {
             window.location.href = '/';
             return;
           }
@@ -104,8 +117,23 @@
             const data = await tabsResp.json();
             setSheetTabs(data.tabs || []);
           }
+          if (driveResp.ok) {
+            setDriveStatus(await driveResp.json());
+          }
         } catch (err) {
           setError(err.message || 'Failed to load settings.');
+        }
+      };
+
+      const disconnectDrive = async () => {
+        setSettingsStatus('');
+        try {
+          const resp = await fetch('/api/auth/google/disconnect', { method: 'POST' });
+          if (resp.status === 401) { window.location.href = '/'; return; }
+          setDriveStatus(s => ({ ...s, connected: false }));
+          setSettingsStatus('Google Drive disconnected.');
+        } catch (err) {
+          setSettingsStatus(err.message || 'Failed to disconnect.');
         }
       };
 
@@ -207,7 +235,10 @@
             setError('Photo upload succeeded but no image URL was returned.');
             return;
           }
-          setDraftImages(imgs => [...imgs, { source: 'local', url: data.url }]);
+          if (data.driveError) {
+            setError(`Drive upload failed, saved locally instead: ${data.driveError}`);
+          }
+          setDraftImages(imgs => [...imgs, { source: data.source || 'local', url: data.url, driveFileId: data.driveFileId }]);
         } catch (err) {
           setError(err.message || 'Photo upload failed.');
         } finally {
@@ -248,11 +279,35 @@
       const addStep = () => {
         if (!draftTitle) { setError('Step title is required.'); return; }
         setError('');
-        setSteps(s => [...s, { id: `step-${Date.now()}`, title: draftTitle, instructions: draftInstructions, images: draftImages }]);
+        if (editingStepId) {
+          setSteps(s => s.map(st => st.id === editingStepId
+            ? { ...st, title: draftTitle, instructions: draftInstructions, images: draftImages }
+            : st));
+          setEditingStepId(null);
+        } else {
+          setSteps(s => [...s, { id: `step-${Date.now()}`, title: draftTitle, instructions: draftInstructions, images: draftImages }]);
+        }
         setDraftTitle(''); setDraftInstructions(''); setDraftImages([]);
       };
 
-      const removeStep = (id) => setSteps(s => s.filter(st => st.id !== id));
+      const startEditStep = (step) => {
+        setEditingStepId(step.id);
+        setDraftTitle(step.title);
+        setDraftInstructions(step.instructions || '');
+        setDraftImages(step.images || []);
+        setError('');
+      };
+
+      const cancelEditStep = () => {
+        setEditingStepId(null);
+        setDraftTitle(''); setDraftInstructions(''); setDraftImages([]);
+        setError('');
+      };
+
+      const removeStep = (id) => {
+        setSteps(s => s.filter(st => st.id !== id));
+        if (editingStepId === id) cancelEditStep();
+      };
       const moveStep = (idx, dir) => {
         setSteps(s => {
           const copy = [...s];
@@ -339,6 +394,31 @@
                 {testingOperators ? 'Testing…' : 'Test'}
               </button>
               {settingsStatus && <p style={{ fontSize: 13 }}>{settingsStatus}</p>}
+
+              <p style={{ fontWeight: 'bold', marginTop: 20 }}>Google Drive (photo uploads)</p>
+              <p style={{ fontSize: 13, opacity: 0.8 }}>
+                New step photos upload to Drive under a real Google account's
+                quota — the service account used for reading/syncing can't
+                write to Drive. Files land in a folder named after the room's
+                slug/acronym.
+              </p>
+              {!driveStatus && <p style={{ fontSize: 13 }}>Checking status…</p>}
+              {driveStatus && !driveStatus.configured && (
+                <p style={{ fontSize: 13, color: '#fbb' }}>
+                  Not set up yet — add <code>google-oauth-client.json</code> (see roomreset/README.md).
+                </p>
+              )}
+              {driveStatus && driveStatus.configured && driveStatus.connected && (
+                <div>
+                  <p style={{ fontSize: 13, color: '#9c9' }}>✓ Connected</p>
+                  <button className="small" onClick={disconnectDrive}>Disconnect</button>
+                </div>
+              )}
+              {driveStatus && driveStatus.configured && !driveStatus.connected && (
+                <a href="/api/auth/google/connect">
+                  <button className="small" style={{ width: '100%' }}>Connect Google Drive</button>
+                </a>
+              )}
             </div>
           )}
 
@@ -354,7 +434,7 @@
 
           <h3>Steps</h3>
           {steps.map((s, idx) => (
-            <div className="step-card" key={s.id}>
+            <div className="step-card" key={s.id} style={editingStepId === s.id ? { borderColor: '#dd6633' } : undefined}>
               <strong>{s.title}</strong>
               <p>{s.instructions}</p>
               {(s.images || []).map((img, i) => (
@@ -366,12 +446,15 @@
               <div>
                 <button className="small" onClick={() => moveStep(idx, -1)}>↑</button>
                 <button className="small" onClick={() => moveStep(idx, 1)}>↓</button>
+                <button className="small" onClick={() => startEditStep(s)} disabled={editingStepId === s.id}>
+                  {editingStepId === s.id ? 'Editing…' : 'Edit'}
+                </button>
                 <button className="small" onClick={() => removeStep(s.id)}>Delete</button>
               </div>
             </div>
           ))}
 
-          <h3>Add Step</h3>
+          <h3>{editingStepId ? 'Edit Step' : 'Add Step'}</h3>
           <input placeholder="Step title" value={draftTitle} onChange={e => setDraftTitle(e.target.value)} />
           <textarea placeholder="Instructions" value={draftInstructions}
                     onChange={e => setDraftInstructions(e.target.value)} />
@@ -408,7 +491,8 @@
             </div>
           )}
 
-          <button className="small" onClick={addStep}>Next (Add Step)</button>
+          <button className="small" onClick={addStep}>{editingStepId ? 'Save Step' : 'Next (Add Step)'}</button>
+          {editingStepId && <button className="small" onClick={cancelEditStep}>Cancel Edit</button>}
 
           <button className="primary" onClick={save} disabled={saving}>{saving ? 'Saving…' : 'Save Room'}</button>
         </div>

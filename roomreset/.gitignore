@@ -1,7 +1,10 @@
 node_modules/
 data/password.txt
 google-credentials.json
+google-oauth-client.json
+data/google-oauth-token.json
 data/reset-rooms/*.json
 !data/reset-rooms/.gitkeep
 data/reset-images/
 data/settings.json
+.env

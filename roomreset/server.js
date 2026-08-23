@@ -8,6 +8,8 @@ const { getSettings, saveSettings } = require('./lib/settings');
 const { listRooms, getRoom, saveRoom } = require('./lib/rooms');
 const { saveImage, IMAGES_DIR } = require('./lib/images');
 const { listDriveImages, streamDriveImage } = require('./lib/driveImages');
+const { uploadImageToDrive } = require('./lib/driveUpload');
+const driveAuth = require('./lib/driveAuth');
 const { findOpenSession, startSession, writeStepCell, finishSession } = require('./lib/sessions');
 
 const app = express();
@@ -174,6 +176,16 @@ const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 
 app.post('/api/rooms/:slug/image', isAuthenticated, upload.single('image'), async (req, res) => {
   if (!req.file) return res.status(400).json({ error: 'No image uploaded' });
   try {
+    if (driveAuth.isConnected()) {
+      try {
+        const result = await uploadImageToDrive(req.params.slug, req.file.buffer, req.file.mimetype, req.file.originalname);
+        return res.json(result);
+      } catch (driveError) {
+        console.error('Drive upload failed, falling back to local storage:', driveError.message);
+        const result = saveImage(req.params.slug, req.file.buffer, req.file.mimetype);
+        return res.json({ ...result, driveError: driveError.message });
+      }
+    }
     const result = saveImage(req.params.slug, req.file.buffer, req.file.mimetype);
     res.json(result);
   } catch (error) {
@@ -183,6 +195,38 @@ app.post('/api/rooms/:slug/image', isAuthenticated, upload.single('image'), asyn
     console.error('Error saving image:', error.message);
     res.status(500).json({ error: 'Failed to save image' });
   }
+});
+
+app.get('/api/auth/google/status', isAuthenticated, (req, res) => {
+  res.json({ configured: driveAuth.isConfigured(), connected: driveAuth.isConnected() });
+});
+
+app.get('/api/auth/google/connect', isAuthenticated, (req, res) => {
+  try {
+    res.redirect(driveAuth.getAuthUrl());
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.get('/api/auth/google/callback', async (req, res) => {
+  const { code, error } = req.query;
+  if (error || !code) {
+    console.error('Google OAuth callback error:', error || 'no code returned');
+    return res.redirect('/admin?drive=error');
+  }
+  try {
+    await driveAuth.handleCallback(code);
+    res.redirect('/admin?drive=connected');
+  } catch (err) {
+    console.error('Google OAuth callback error:', err.message);
+    res.redirect('/admin?drive=error');
+  }
+});
+
+app.post('/api/auth/google/disconnect', isAuthenticated, (req, res) => {
+  driveAuth.disconnect();
+  res.json({ ok: true });
 });
 
 app.get('/api/drive-images', isAuthenticated, async (req, res) => {
