@@ -169,7 +169,8 @@
             { id: 'core-2', name: 'Node-RED', url: '/nodered', internal: true, core: true },
             { id: 'core-3', name: 'Escape Tracking Sheet', url: 'https://docs.google.com/spreadsheets/d/1TCrSmXbHZnlltAJn1940vrMo_Z6z3PuLskcGPSQu7Yk/edit', description: 'Google Sheet with all session data', icon: '📊', internal: false, core: true },
             { id: 'core-4', name: 'RoomReset', url: `${window.location.protocol}//${window.location.hostname}:3001/`, description: 'Escape room reset checklist', icon: '🔄', internal: false, core: true },
-            { id: 'core-5', name: 'Room Control / Timer', url: '/room-control/', description: 'Escape room game clock — operator panel, player screen, hint delivery (test)', icon: '⏱️', internal: true, core: true }
+            { id: 'core-5', name: 'PLR Constellation Panel', url: '/nodered/ui/', description: 'Live touch status + Override Win / Reset Puzzle controls for the Constellation puzzle PLC', icon: '⭐', internal: true, core: true },
+            { id: 'core-6', name: 'Room Control / Timer', url: '/room-control/', description: 'Escape room game clock — operator panel, player screen, hint delivery (test)', icon: '⏱️', internal: true, core: true }
           ];
 
           // Load user-added links
@@ -180,7 +181,7 @@
             try {
               const parsed = JSON.parse(linksData.value);
               // Filter out any old core links and keep only user-added ones
-              userLinks = parsed.filter(link => !link.core && !['core-1', 'core-2', 'core-3', 'core-4', 'core-5'].includes(link.id));
+              userLinks = parsed.filter(link => !link.core && !['core-1', 'core-2', 'core-3', 'core-4', 'core-5', 'core-6'].includes(link.id));
             } catch (e) {
               console.error('Error parsing links:', e);
             }
@@ -196,7 +197,8 @@
             { id: 'core-2', name: 'Node-RED', url: '/nodered', internal: true, core: true },
             { id: 'core-3', name: 'Escape Tracking Sheet', url: 'https://docs.google.com/spreadsheets/d/1TCrSmXbHZnlltAJn1940vrMo_Z6z3PuLskcGPSQu7Yk/edit', description: 'Google Sheet with all session data', icon: '📊', internal: false, core: true },
             { id: 'core-4', name: 'RoomReset', url: `${window.location.protocol}//${window.location.hostname}:3001/`, description: 'Escape room reset checklist', icon: '🔄', internal: false, core: true },
-            { id: 'core-5', name: 'Room Control / Timer', url: '/room-control/', description: 'Escape room game clock — operator panel, player screen, hint delivery (test)', icon: '⏱️', internal: true, core: true }
+            { id: 'core-5', name: 'PLR Constellation Panel', url: '/nodered/ui/', description: 'Live touch status + Override Win / Reset Puzzle controls for the Constellation puzzle PLC', icon: '⭐', internal: true, core: true },
+            { id: 'core-6', name: 'Room Control / Timer', url: '/room-control/', description: 'Escape room game clock — operator panel, player screen, hint delivery (test)', icon: '⏱️', internal: true, core: true }
           ]);
         }
       };
@@ -344,7 +346,7 @@
                 </HelpTopic>
 
                 <HelpTopic title="Home page links (this page)">
-                  <p>Session Tracker, Node-RED, the Escape Tracking Sheet, and RoomReset are built-in and can't be removed. Add your own links (internal paths like <code>/something</code>, or full external URLs) under <strong>Settings → Manage Links</strong> — use the ↑/↓ buttons to reorder them.</p>
+                  <p>Session Tracker, Node-RED, the Escape Tracking Sheet, RoomReset, the PLR Constellation Panel, and Room Control / Timer are built-in and can't be removed. Add your own links (internal paths like <code>/something</code>, or full external URLs) under <strong>Settings → Manage Links</strong> — use the ↑/↓ buttons to reorder them.</p>
                 </HelpTopic>
 
                 <HelpTopic title="Display theme">
